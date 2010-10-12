@@ -1,4 +1,4 @@
-LootRollMover = {};
+local MyAddon, LootRollMover = ...
 LootRollMover.version = GetAddOnMetadata("LootRollMover", "Version")
 
 local _G = _G
@@ -14,7 +14,7 @@ function LootRollMover:SetupDB()
 	if not LRMDB then
 		LRMDB = {}
 	end
-	
+
 	--check for window position if not available then load default
 	if LRMDB and not LRMDB["LootRollMoverAnchor_Frame"] then
 		LRMDB["LootRollMoverAnchor_Frame"] = {
@@ -22,11 +22,11 @@ function LootRollMover:SetupDB()
 			["relativePoint"] = "CENTER",
 			["xOfs"] = 0,
 			["yOfs"] = 0,
-		}	
+		}
 	end
-	
+
 	if LRMDB.scale == nil then LRMDB.scale = 1 end
-	
+
 end
 
 
@@ -34,10 +34,10 @@ function LootRollMover:Enable()
 
 	--database setup (check for updates to db)
 	LootRollMover:SetupDB()
-	
+
 	--lets create the GUI
 	LootRollMover:DrawGUI();
-	
+
 	--load the position hook for saved location
 	LootRollMover:LoadPositionHook()
 
@@ -51,14 +51,14 @@ function LootRollMover:Print(msg)
 	if type(msg) == 'table' then
 
 		local success,err = pcall(function(msg) return table.concat(msg, ", ") end, msg)
-		
+
 		if success then
 			msg = "Table: "..table.concat(msg, ", ")
 		else
 			msg = "Table: Error, table cannot contain sub tables."
 		end
 	end
-	
+
 	msg = tostring(msg)
 	msg = "|cFF80FF00LootRollMover|r: " .. msg
 	DEFAULT_CHAT_FRAME:AddMessage(msg);
@@ -81,7 +81,7 @@ end
 function LootRollMover:DrawGUI()
 
 	local frame = CreateFrame("Frame", "LootRollMoverAnchor_Frame", UIParent)
-	
+
 	frame:SetFrameStrata("DIALOG")
 	frame:SetWidth(GroupLootFrame1:GetWidth())
 	frame:SetHeight(GroupLootFrame1:GetHeight())
@@ -89,12 +89,12 @@ function LootRollMover:DrawGUI()
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
 	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", function() this:StartMoving() end )
-	frame:SetScript("OnDragStop", function() 
-		this:StopMovingOrSizing() 
+	frame:SetScript("OnDragStart", function(self) self:StartMoving() end )
+	frame:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
 	end )
-	frame:SetScript("OnMouseDown", function()
-		if arg1 == "RightButton" then
+	frame:SetScript("OnMouseDown", function(self, Button)
+		if Button == "RightButton" then
 			LootRollMover:SaveLayout("LootRollMoverAnchor_Frame")
 			LootRollMoverAnchor_Frame:Hide()
 
@@ -119,19 +119,19 @@ function LootRollMover:DrawGUI()
 	frame:SetBackdropBorderColor(0.75,0,0,1)
 
 	frame:SetScale(LRMDB.scale)
-	
+
 	frame:Hide()
-	
+
 	--restore saved layout
 	LootRollMover:RestoreLayout("LootRollMoverAnchor_Frame");
-	
+
 end
 
 function LootRollMover:SaveLayout(frame)
 
 	local opt = LRMDB[frame]
 
-	if not opt then 
+	if not opt then
 		LRMDB[frame] = {
 			["point"] = "CENTER",
 			["relativePoint"] = "CENTER",
@@ -141,7 +141,7 @@ function LootRollMover:SaveLayout(frame)
 		opt = LRMDB[frame]
 	end
 
-	local point,relativeTo,relativePoint,xOfs,yOfs = getglobal(frame):GetPoint()
+	local point,relativeTo,relativePoint,xOfs,yOfs = _G[frame]:GetPoint()
 	opt.point = point
 	opt.relativePoint = relativePoint
 	opt.xOfs = xOfs
@@ -150,11 +150,11 @@ end
 
 function LootRollMover:RestoreLayout(frame)
 
-	local f = getglobal(frame);
-	
+	local f = _G[frame];
+
 	local opt = LRMDB[frame]
 
-	if not opt then 
+	if not opt then
 		LRMDB[frame] = {
 			["point"] = "CENTER",
 			["relativePoint"] = "CENTER",
@@ -195,7 +195,7 @@ local eventFrame = CreateFrame("Frame", "LootRollMoverEventFrame", UIParent)
 eventFrame:RegisterEvent("ADDON_LOADED");
 
 eventFrame:SetScript("OnEvent", function(self, event, ...)
-	if event == "ADDON_LOADED" and arg1 == "LootRollMover" then
+	if event == "ADDON_LOADED" and select(1, ...) == "LootRollMover" then
 		LootRollMover:Enable()
 	end
 end)
@@ -204,7 +204,7 @@ end)
 local function SlashCommand(cmd)
 
 	local a,b,c=strfind(cmd, "(%S+)"); --contiguous string of non-space characters
-	
+
 	if a then
 		if c and c:lower() == "show" then
 			LootRollMover:AnchorToggle()
@@ -226,16 +226,14 @@ local function SlashCommand(cmd)
 			end
 		end
 	end
-	
+
 	LootRollMover:Print("/lrm show - Toggle moveable anchor")
 	LootRollMover:Print("/lrm reset - Reset anchor position")
 	LootRollMover:Print("/lrm scale # - Set the scale of the Loot Frames (Default 1)")
- 	
+
  	return false
 end
 
 SLASH_LOOTROLLMOVER1 = "/lrm";
 SLASH_LOOTROLLMOVER2 = "/lootrollmover";
 SlashCmdList["LOOTROLLMOVER"] = SlashCommand;
-
-
