@@ -122,10 +122,10 @@ function f:DrawAnchor()
 		end
 	end)
 
-	local string = frame:CreateFontString()
-	string:SetAllPoints(frame)
-	string:SetFontObject("GameFontNormalSmall")
-	string:SetText("LootRollMover\n\nRight click when finished dragging")
+	local stringA = frame:CreateFontString()
+	stringA:SetAllPoints(frame)
+	stringA:SetFontObject("GameFontNormalSmall")
+	stringA:SetText("LootRollMover\n\nRight click when finished dragging")
 
 	frame:SetBackdrop({
 			bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -147,10 +147,12 @@ end
 --[[------------------------
 	LAYOUT SAVE/RESTORE
 --------------------------]]
-
 function f:SaveLayout(frame)
-
-	local opt = LRMDB[frame]
+	if type(frame) ~= "string" then return end
+	if not _G[frame] then return end
+	if not LRMDB then LRMDB = {} end
+	
+	local opt = LRMDB[frame] or nil
 
 	if not opt then
 		LRMDB[frame] = {
@@ -160,9 +162,10 @@ function f:SaveLayout(frame)
 			["yOfs"] = 0,
 		}
 		opt = LRMDB[frame]
+		return
 	end
 
-	local point,relativeTo,relativePoint,xOfs,yOfs = _G[frame]:GetPoint()
+	local point, relativeTo, relativePoint, xOfs, yOfs = _G[frame]:GetPoint()
 	opt.point = point
 	opt.relativePoint = relativePoint
 	opt.xOfs = xOfs
@@ -170,10 +173,11 @@ function f:SaveLayout(frame)
 end
 
 function f:RestoreLayout(frame)
+	if type(frame) ~= "string" then return end
+	if not _G[frame] then return end
+	if not LRMDB then LRMDB = {} end
 
-	local f = _G[frame];
-
-	local opt = LRMDB[frame]
+	local opt = LRMDB[frame] or nil
 
 	if not opt then
 		LRMDB[frame] = {
@@ -185,9 +189,8 @@ function f:RestoreLayout(frame)
 		opt = LRMDB[frame]
 	end
 
-	f:ClearAllPoints()
-	f:SetPoint( opt.point, UIParent, opt.relativePoint, opt.xOfs, opt.yOfs )
-	f:Hide()
+	_G[frame]:ClearAllPoints()
+	_G[frame]:SetPoint(opt.point, UIParent, opt.relativePoint, opt.xOfs, opt.yOfs)
 end
 
 if IsLoggedIn() then f:PLAYER_LOGIN() else f:RegisterEvent("PLAYER_LOGIN") end
