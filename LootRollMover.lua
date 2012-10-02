@@ -1,6 +1,6 @@
 --LootRollMover by Xruptor
 
-local f = CreateFrame("frame","LootRollMoverEventFrame",UIParent)
+local f = CreateFrame("frame","LRMFrame",UIParent)
 f:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
 
 --[[------------------------
@@ -18,9 +18,6 @@ function f:PLAYER_LOGIN()
 	
 	--restore previous layout
 	self:RestoreLayout("LootRollMoverAnchor_Frame")
-	
-	--restore the position hooks for the group frames
-	self:LoadPositionHook()
 	
 	--slash commands
 	SLASH_LOOTROLLMOVER1 = "/lrm"
@@ -70,28 +67,51 @@ end
 	CORE
 --------------------------]]
 
-function f:LoadPositionHook()
+--replace the grouplootframe show, it has fixanchors in it
+--http://wowprogramming.com/utils/xmlbrowser/live/FrameXML/LootFrame.lua
+
+local function RepositionLootFrames()
 	if not _G["LootRollMoverAnchor_Frame"] then return end
 	if not LRMDB then return end
-	
-	local frame = _G["GroupLootFrame1"]
-	frame:ClearAllPoints()
-	frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
-	frame:SetParent(UIParent)
-	frame:SetFrameLevel(0)
-	frame:SetScale(LRMDB.scale)
-	for i=2, NUM_GROUP_LOOT_FRAMES do
+	local frame
+	for i=1, NUM_GROUP_LOOT_FRAMES do
 		frame = _G["GroupLootFrame" .. i]
-		if i > 1 then
-			frame:ClearAllPoints()
-			frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, 3)
-			frame:SetParent(UIParent)
-			frame:SetFrameLevel(0)
-			frame:SetScale(LRMDB.scale)
+		if i == 1 then
+			if ( frame:IsShown() ) then
+				frame:ClearAllPoints()
+				frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
+				frame:SetParent(UIParent)
+				frame:SetScale(LRMDB.scale)
+			end
+		elseif i > 1 then
+			if ( frame:IsShown() ) then
+				frame:ClearAllPoints()
+				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, 3)
+				frame:SetParent(UIParent)
+				frame:SetScale(LRMDB.scale)
+			end
 		end
 	end
 end
 
+local old_GroupLootFrame_OnShow = GroupLootFrame_OnShow
+GroupLootFrame_OnShow = function(self)
+	old_GroupLootFrame_OnShow(self)
+	RepositionLootFrames()
+end
+
+local old_GroupLootFrame_OpenNewFrame = GroupLootFrame_OpenNewFrame
+GroupLootFrame_OpenNewFrame = function(id, rollTime)
+	old_GroupLootFrame_OpenNewFrame(id, rollTime)
+	RepositionLootFrames()
+end
+ 
+local old_GroupLootFrame_OnEvent = GroupLootFrame_OnEvent
+GroupLootFrame_OnEvent = function(self, event, ...)
+	old_GroupLootFrame_OnEvent(self, event, ...)
+	RepositionLootFrames()
+end
+ 
 function f:DrawAnchor()
 
 	local frame = CreateFrame("Frame", "LootRollMoverAnchor_Frame", UIParent)
@@ -108,7 +128,6 @@ function f:DrawAnchor()
 			self.isMoving = true
 			self:StartMoving()
 		else
-			f:LoadPositionHook()
 			self:Hide()
 		end
 		
