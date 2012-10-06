@@ -74,44 +74,28 @@ local function RepositionLootFrames()
 	if not _G["LootRollMoverAnchor_Frame"] then return end
 	if not LRMDB then return end
 	local frame
+	frame = _G["GroupLootContainer"]
+	if ( frame ) then
+		frame:ClearAllPoints()
+		frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
+		frame:SetParent(UIParent)
+		frame:SetScale(LRMDB.scale)
+	end
 	for i=1, NUM_GROUP_LOOT_FRAMES do
 		frame = _G["GroupLootFrame" .. i]
-		if i == 1 then
-			if ( frame:IsShown() ) then
-				frame:ClearAllPoints()
-				frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
-				frame:SetParent(UIParent)
-				frame:SetScale(LRMDB.scale)
-			end
-		elseif i > 1 then
-			if ( frame:IsShown() ) then
-				frame:ClearAllPoints()
-				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, 3)
-				frame:SetParent(UIParent)
-				frame:SetScale(LRMDB.scale)
-			end
+		if ( frame ) then
+			frame:SetScale(LRMDB.scale)
 		end
 	end
 end
 
-local old_GroupLootFrame_OnShow = GroupLootFrame_OnShow
-GroupLootFrame_OnShow = function(self)
-	old_GroupLootFrame_OnShow(self)
-	RepositionLootFrames()
-end
+hooksecurefunc("GroupLootContainer_OnLoad", RepositionLootFrames)
+hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
+hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
+hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
+hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
+hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
 
-local old_GroupLootFrame_OpenNewFrame = GroupLootFrame_OpenNewFrame
-GroupLootFrame_OpenNewFrame = function(id, rollTime)
-	old_GroupLootFrame_OpenNewFrame(id, rollTime)
-	RepositionLootFrames()
-end
- 
-local old_GroupLootFrame_OnEvent = GroupLootFrame_OnEvent
-GroupLootFrame_OnEvent = function(self, event, ...)
-	old_GroupLootFrame_OnEvent(self, event, ...)
-	RepositionLootFrames()
-end
- 
 function f:DrawAnchor()
 
 	local frame = CreateFrame("Frame", "LootRollMoverAnchor_Frame", UIParent)

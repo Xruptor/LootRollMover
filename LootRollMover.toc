@@ -1,7 +1,7 @@
 ## Interface: 50001
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 3.0
+## Version: 3.1
 ## Notes: A simple mod to move the default Blizzard Group Loot Roll Windows
 ## SavedVariables: LRMDB
 
