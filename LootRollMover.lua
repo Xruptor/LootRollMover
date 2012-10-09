@@ -78,13 +78,22 @@ local function RepositionLootFrames()
 	if ( frame ) then
 		frame:ClearAllPoints()
 		frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
-		frame:SetParent(UIParent)
 		frame:SetScale(LRMDB.scale)
 	end
 	for i=1, NUM_GROUP_LOOT_FRAMES do
 		frame = _G["GroupLootFrame" .. i]
-		if ( frame ) then
-			frame:SetScale(LRMDB.scale)
+		if i == 1 then
+			if ( frame ) then
+				frame:ClearAllPoints()
+				frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
+				frame:SetScale(LRMDB.scale)
+			end
+		elseif i > 1 then
+			if ( frame ) then
+				frame:ClearAllPoints()
+				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, 3)
+				frame:SetScale(LRMDB.scale)
+			end
 		end
 	end
 end
@@ -94,6 +103,7 @@ hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
 hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
 hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
 hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
+hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
 hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
 
 function f:DrawAnchor()
