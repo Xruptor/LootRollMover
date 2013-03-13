@@ -7,6 +7,8 @@ f:SetScript("OnEvent", function(self, event, ...) if self[event] then return sel
 	ENABLE
 --------------------------]]
 
+UIPARENT_MANAGED_FRAME_POSITIONS["GroupLootContainer"] = nil; 
+
 function f:PLAYER_LOGIN()
 
 	--setup the DB
