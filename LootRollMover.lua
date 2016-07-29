@@ -3,6 +3,11 @@
 local f = CreateFrame("frame","LRMFrame",UIParent)
 f:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
 
+local debugf = tekDebug and tekDebug:GetFrame("LootRollMover")
+local function Debug(...)
+    if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
+end
+
 --[[------------------------
 	ENABLE
 --------------------------]]
@@ -106,7 +111,7 @@ hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
 hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
 hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
-hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
+--hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
 
 function f:DrawAnchor()
 
