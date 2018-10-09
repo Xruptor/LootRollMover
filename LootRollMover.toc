@@ -1,9 +1,17 @@
 ## Interface: 80000
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 3.7
+## Version: 3.8
+## X-Curse-Project-ID: 17488
+## X-WoWI-ID: 12374
 ## Notes: A simple mod to move the default Blizzard Group Loot Roll Windows
 ## OptionalDeps: tekDebug
 ## SavedVariables: LRMDB
 
+libs\LibStub\LibStub.lua
+libs\AceLocale-3.0\AceLocale-3.0.xml
+
+locale\enUS.lua
+
 LootRollMover.lua
+config.lua

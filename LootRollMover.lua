@@ -1,9 +1,16 @@
 --LootRollMover by Xruptor
 
-local f = CreateFrame("frame","LRMFrame",UIParent)
-f:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
+local ADDON_NAME, addon = ...
+if not _G[ADDON_NAME] then
+	_G[ADDON_NAME] = CreateFrame("Frame", ADDON_NAME, UIParent)
+end
+addon = _G[ADDON_NAME]
 
-local debugf = tekDebug and tekDebug:GetFrame("LootRollMover")
+local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
+
+addon:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
+
+local debugf = tekDebug and tekDebug:GetFrame(ADDON_NAME)
 local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
@@ -12,9 +19,9 @@ end
 	ENABLE
 --------------------------]]
 
-UIPARENT_MANAGED_FRAME_POSITIONS["GroupLootContainer"] = nil; 
+UIPARENT_MANAGED_FRAME_POSITIONS["GroupLootContainer"] = nil
 
-function f:PLAYER_LOGIN()
+function addon:PLAYER_LOGIN()
 
 	--setup the DB
 	if not LRMDB then LRMDB = {} end
@@ -28,45 +35,38 @@ function f:PLAYER_LOGIN()
 	
 	--slash commands
 	SLASH_LOOTROLLMOVER1 = "/lrm"
-	SLASH_LOOTROLLMOVER2 = "/lootrollmover"
 	SlashCmdList["LOOTROLLMOVER"] = function(cmd)
 		local a,b,c=strfind(cmd, "(%S+)"); --contiguous string of non-space characters
 		
 		if a then
-			if c and c:lower() == "show" then
-				if not _G["LootRollMoverAnchor_Frame"] then return end
-				_G["LootRollMoverAnchor_Frame"]:Show()
+			if c and c:lower() == L.SlashAnchor then
+				addon.aboutPanel.btnAnchor.func()
 				return true
-			elseif c and c:lower() == "reset" then
-				if not _G["LootRollMoverAnchor_Frame"] then return end
-				_G["LootRollMoverAnchor_Frame"]:ClearAllPoints()
-				_G["LootRollMoverAnchor_Frame"]:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-				_G["LootRollMoverAnchor_Frame"]:Show()
-				DEFAULT_CHAT_FRAME:AddMessage("LootRollMover: Frame position has been reset!")
+			elseif c and c:lower() == L.SlashReset then
+				addon.aboutPanel.btnReset.func()
 				return true
-			elseif c and c:lower() == "scale" then
+			elseif c and c:lower() == L.SlashScale then
 				if b then
 					local scalenum = strsub(cmd, b+2)
-					if scalenum and scalenum ~= "" and tonumber(scalenum) then
-						if not _G["LootRollMoverAnchor_Frame"] then return end
-						_G["LootRollMoverAnchor_Frame"]:SetScale(tonumber(scalenum))
-						LRMDB.scale = tonumber(scalenum)
-						DEFAULT_CHAT_FRAME:AddMessage("LootRollMover: scale has been set to ["..tonumber(scalenum).."]")
-						return true
+					if scalenum and scalenum ~= "" and tonumber(scalenum) and tonumber(scalenum) > 0 and tonumber(scalenum) <= 200 then
+						addon.aboutPanel.sliderScale.func(tonumber(scalenum))
+					else
+						DEFAULT_CHAT_FRAME:AddMessage(L.SlashScaleSetInvalid)
 					end
+					return true
 				end
 			end
 		end
 
-		DEFAULT_CHAT_FRAME:AddMessage("LootRollMover");
-		DEFAULT_CHAT_FRAME:AddMessage("/lrm show - Toggle moveable anchor")
-		DEFAULT_CHAT_FRAME:AddMessage("/lrm reset - Reset anchor position")
-		DEFAULT_CHAT_FRAME:AddMessage("/lrm scale # - Set the scale of the Loot Frames (Default 1)")
+		DEFAULT_CHAT_FRAME:AddMessage(ADDON_NAME, 64/255, 224/255, 208/255)
+		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashAnchor.." - "..L.SlashAnchorInfo)
+		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashReset.." - "..L.SlashResetInfo)
+		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashScale.." # - "..L.SlashScaleInfo)
 
 	end
 	
-	local ver = GetAddOnMetadata("LootRollMover","Version") or '1.0'
-	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFFDF2B2B%s|r] Loaded", "LootRollMover", ver or "1.0"))
+	local ver = GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
+	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
 	
 end
 
@@ -82,7 +82,8 @@ local function RepositionLootFrames()
 	if not LRMDB then return end
 	local frame
 	frame = _G["GroupLootContainer"]
-	if ( frame ) then
+	
+	if frame and CanAccessObject(frame) then
 		frame:ClearAllPoints()
 		frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
 		frame:SetScale(LRMDB.scale)
@@ -90,13 +91,13 @@ local function RepositionLootFrames()
 	for i=1, NUM_GROUP_LOOT_FRAMES do
 		frame = _G["GroupLootFrame" .. i]
 		if i == 1 then
-			if ( frame ) then
+			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
 				frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
 				frame:SetScale(LRMDB.scale)
 			end
 		elseif i > 1 then
-			if ( frame ) then
+			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
 				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, 3)
 				frame:SetScale(LRMDB.scale)
@@ -113,7 +114,7 @@ hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
 --hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
 
-function f:DrawAnchor()
+function addon:DrawAnchor()
 
 	local frame = CreateFrame("Frame", "LootRollMoverAnchor_Frame", UIParent)
 
@@ -138,14 +139,14 @@ function f:DrawAnchor()
 			self.isMoving = nil
 			self:StopMovingOrSizing()
 
-			f:SaveLayout(self:GetName())
+			addon:SaveLayout(self:GetName())
 		end
 	end)
 
 	local stringA = frame:CreateFontString()
 	stringA:SetAllPoints(frame)
 	stringA:SetFontObject("GameFontNormalSmall")
-	stringA:SetText("LootRollMover\n\nRight click when finished dragging")
+	stringA:SetText(L.DragFrameInfo)
 
 	frame:SetBackdrop({
 			bgFile = "Interface/Tooltips/UI-Tooltip-Background",
@@ -167,7 +168,7 @@ end
 --[[------------------------
 	LAYOUT SAVE/RESTORE
 --------------------------]]
-function f:SaveLayout(frame)
+function addon:SaveLayout(frame)
 	if type(frame) ~= "string" then return end
 	if not _G[frame] then return end
 	if not LRMDB then LRMDB = {} end
@@ -192,7 +193,7 @@ function f:SaveLayout(frame)
 	opt.yOfs = yOfs
 end
 
-function f:RestoreLayout(frame)
+function addon:RestoreLayout(frame)
 	if type(frame) ~= "string" then return end
 	if not _G[frame] then return end
 	if not LRMDB then LRMDB = {} end
@@ -213,4 +214,4 @@ function f:RestoreLayout(frame)
 	_G[frame]:SetPoint(opt.point, UIParent, opt.relativePoint, opt.xOfs, opt.yOfs)
 end
 
-if IsLoggedIn() then f:PLAYER_LOGIN() else f:RegisterEvent("PLAYER_LOGIN") end
+if IsLoggedIn() then addon:PLAYER_LOGIN() else addon:RegisterEvent("PLAYER_LOGIN") end
