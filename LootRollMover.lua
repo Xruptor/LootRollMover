@@ -15,6 +15,10 @@ local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
 
+local function CanAccessObject(obj)
+	return issecure() or not obj:IsForbidden();
+end
+
 --[[------------------------
 	ENABLE
 --------------------------]]
@@ -82,7 +86,7 @@ local function RepositionLootFrames()
 	if not LRMDB then return end
 	local frame
 	frame = _G["GroupLootContainer"]
-	
+
 	if frame and CanAccessObject(frame) then
 		frame:ClearAllPoints()
 		frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
