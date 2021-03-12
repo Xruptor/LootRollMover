@@ -1,12 +1,12 @@
 #@retail@
-## Interface: 90001
+## Interface: 90005
 #@end-retail@
 #@non-retail@
-# ## Interface: 11305
+# ## Interface: 11306
 #@end-non-retail@
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 4.2
+## Version: 4.3
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
 ## Notes: A simple mod to move the default Blizzard Group Loot Roll Windows
