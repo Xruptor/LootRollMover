@@ -9,7 +9,7 @@
 ## Version: 4.5
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
-## Notes: A simple mod to move the default Blizzard Group Loot Roll Windows
+## Notes: A simple addon to move the default Blizzard Group Loot Roll Windows
 ## OptionalDeps: tekDebug
 ## SavedVariables: LRMDB
 
