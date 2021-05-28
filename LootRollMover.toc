@@ -1,12 +1,10 @@
-#@retail@
 ## Interface: 90005
-#@end-retail@
-#@non-retail@
-# ## Interface: 11306
-#@end-non-retail@
+## Interface-Retail: 90005
+## Interface-Classic: 11307
+## Interface-BCC: 20501
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 4.5
+## Version: 4.6
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
 ## Notes: A simple addon to move the default Blizzard Group Loot Roll Windows
