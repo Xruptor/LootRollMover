@@ -13,6 +13,17 @@ local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
 
+local WOW_PROJECT_ID = _G.WOW_PROJECT_ID
+local WOW_PROJECT_MAINLINE = _G.WOW_PROJECT_MAINLINE
+local WOW_PROJECT_CLASSIC = _G.WOW_PROJECT_CLASSIC
+--local WOW_PROJECT_BURNING_CRUSADE_CLASSIC = _G.WOW_PROJECT_BURNING_CRUSADE_CLASSIC
+local WOW_PROJECT_WRATH_CLASSIC = _G.WOW_PROJECT_WRATH_CLASSIC
+
+addon.IsRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+addon.IsClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
+--BSYC.IsTBC_C = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC
+addon.IsWLK_C = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
+
 addon:RegisterEvent("ADDON_LOADED")
 addon:SetScript("OnEvent", function(self, event, ...)
 	if event == "ADDON_LOADED" or event == "PLAYER_LOGIN" then
@@ -43,10 +54,14 @@ end
 	ENABLE
 --------------------------]]
 
-UIPARENT_MANAGED_FRAME_POSITIONS["GroupLootContainer"] = nil
-
 function addon:EnableAddon()
 
+	_G.GroupLootContainer:EnableMouse(false)
+	
+	if not self.IsRetail then
+		_G.UIPARENT_MANAGED_FRAME_POSITIONS.GroupLootContainer = nil
+	end
+	
 	--setup the DB
 	if not LRMDB then LRMDB = {} end
 	if LRMDB.scale == nil then LRMDB.scale = 1 end
@@ -133,10 +148,10 @@ end
 
 hooksecurefunc("GroupLootContainer_OnLoad", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
-hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
-hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
-hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
+--hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
+--hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
+--hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
 --hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
 
 function addon:DrawAnchor()
