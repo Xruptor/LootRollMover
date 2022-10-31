@@ -4,7 +4,7 @@
 ## Interface-Wrath: 30400
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 4.8
+## Version: 4.9
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
 ## Notes: A simple addon to move the default Blizzard Group Loot Roll Windows
