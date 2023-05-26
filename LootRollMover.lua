@@ -128,7 +128,7 @@ local function RepositionLootFrames()
 		frame:SetPoint("BOTTOMLEFT", _G["LootRollMoverAnchor_Frame"], "BOTTOMLEFT", 4, 2)
 		frame:SetScale(LRMDB.scale)
 	end
-	for i=1, NUM_GROUP_LOOT_FRAMES do
+	for i=1, NUM_GROUP_LOOT_FRAMES or 4 do
 		frame = _G["GroupLootFrame" .. i]
 		if i == 1 then
 			if frame and CanAccessObject(frame) then
@@ -149,7 +149,7 @@ end
 hooksecurefunc("GroupLootContainer_OnLoad", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
---hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
+hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
 --hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
 --hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
 --hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)

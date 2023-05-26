@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"Lua.diagnostics.globals": [
+			"SlashCmdList",
+			"NUM_GROUP_LOOT_FRAMES",
+			"DEFAULT_CHAT_FRAME",
+			"GroupLootFrame1",
+			"tostringall",
+			"InterfaceOptions_AddCategory"
+		]
+	}
+}
