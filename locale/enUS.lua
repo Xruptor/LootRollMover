@@ -16,8 +16,8 @@ L.SlashResetAlert = "LootRollMover: Anchor position has been reset!"
 
 L.SlashScale = "scale"
 L.SlashScaleSet = "LootRollMover: scale has been set to [|cFF20ff20%s|r]"
-L.SlashScaleSetInvalid = "LootRollMover: scale invalid or number cannot be greater than 2"
-L.SlashScaleInfo = "Set the scale of the LootRollMover loot frames (0-200)."
+L.SlashScaleSetInvalid = "LootRollMover: Scale invalid! Number must be from [0.5 - 5].  (0.5, 1, 3, 4.6, etc..)"
+L.SlashScaleInfo = "Set the scale of the LootRollMover loot frames (0.5 - 5)."
 L.SlashScaleText = "LootRollMover loot frame Scale"
 
 L.DragFrameInfo = "LootRollMover\n\nRight click when finished dragging"

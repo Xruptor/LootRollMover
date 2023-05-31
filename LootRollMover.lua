@@ -57,26 +57,26 @@ end
 function addon:EnableAddon()
 
 	_G.GroupLootContainer:EnableMouse(false)
-	
+
 	if not self.IsRetail then
 		_G.UIPARENT_MANAGED_FRAME_POSITIONS.GroupLootContainer = nil
 	end
-	
+
 	--setup the DB
 	if not LRMDB then LRMDB = {} end
 	if LRMDB.scale == nil then LRMDB.scale = 1 end
-	
+
 	--draw the anchor
 	self:DrawAnchor()
-	
+
 	--restore previous layout
 	self:RestoreLayout("LootRollMoverAnchor_Frame")
-	
+
 	--slash commands
 	SLASH_LOOTROLLMOVER1 = "/lrm"
 	SlashCmdList["LOOTROLLMOVER"] = function(cmd)
 		local a,b,c=strfind(cmd, "(%S+)"); --contiguous string of non-space characters
-		
+
 		if a then
 			if c and c:lower() == L.SlashAnchor then
 				addon.aboutPanel.btnAnchor.func()
@@ -87,8 +87,8 @@ function addon:EnableAddon()
 			elseif c and c:lower() == L.SlashScale then
 				if b then
 					local scalenum = strsub(cmd, b+2)
-					if scalenum and scalenum ~= "" and tonumber(scalenum) and tonumber(scalenum) > 0 and tonumber(scalenum) <= 200 then
-						addon.aboutPanel.sliderScale.func(tonumber(scalenum))
+					if scalenum and scalenum ~= "" and tonumber(scalenum) and tonumber(scalenum) >= 0.5 and tonumber(scalenum) <= 5 then
+						addon:SetScale(tonumber(scalenum))
 					else
 						DEFAULT_CHAT_FRAME:AddMessage(L.SlashScaleSetInvalid)
 					end
@@ -103,9 +103,9 @@ function addon:EnableAddon()
 		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashScale.." # - "..L.SlashScaleInfo)
 
 	end
-	
+
 	if addon.configFrame then addon.configFrame:EnableConfig() end
-	
+
 	local ver = GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
 end
@@ -159,8 +159,15 @@ function addon:DrawAnchor()
 	local frame = CreateFrame("Frame", "LootRollMoverAnchor_Frame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 
 	frame:SetFrameStrata("DIALOG")
-	frame:SetWidth(GroupLootFrame1:GetWidth())
-	frame:SetHeight(GroupLootFrame1:GetHeight())
+
+	local width = GroupLootFrame1:GetWidth()
+	local height = GroupLootFrame1:GetHeight()
+
+	if width < 277 then width = 277 end
+	if height < 67 then height = 67 end
+
+	frame:SetWidth(width)
+	frame:SetHeight(height)
 
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
@@ -172,7 +179,7 @@ function addon:DrawAnchor()
 		else
 			self:Hide()
 		end
-		
+
 	end)
 	frame:SetScript("OnMouseUp",function(self)
 		if( self.isMoving ) then
@@ -199,11 +206,20 @@ function addon:DrawAnchor()
 	frame:SetBackdropColor(0.75,0,0,1)
 	frame:SetBackdropBorderColor(0.75,0,0,1)
 
+	--fix this in case it's ever smaller than 
+	if LRMDB.scale < 0.5 then LRMDB.scale = 0.5 end --anything smaller and it would vanish
+	if LRMDB.scale > 5 then LRMDB.scale = 5 end --WAY too big
 	frame:SetScale(LRMDB.scale)
 
 	frame:Hide()
-
 end
+
+function addon:SetScale(value)
+	LRMDB.scale = value
+	DEFAULT_CHAT_FRAME:AddMessage(string.format(L.SlashScaleSet, value))
+	_G["LootRollMoverAnchor_Frame"]:SetScale(LRMDB.scale)
+end
+
 
 --[[------------------------
 	LAYOUT SAVE/RESTORE
@@ -212,7 +228,7 @@ function addon:SaveLayout(frame)
 	if type(frame) ~= "string" then return end
 	if not _G[frame] then return end
 	if not LRMDB then LRMDB = {} end
-	
+
 	local opt = LRMDB[frame] or nil
 
 	if not opt then

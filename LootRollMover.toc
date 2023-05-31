@@ -4,7 +4,7 @@
 ## Interface-Wrath: 30401
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 5.3
+## Version: 5.4
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
 ## X-Wago-ID: BO67mgG3
