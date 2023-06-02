@@ -163,8 +163,8 @@ function addon:DrawAnchor()
 	local width = GroupLootFrame1:GetWidth()
 	local height = GroupLootFrame1:GetHeight()
 
-	if width < 277 then width = 277 end
-	if height < 67 then height = 67 end
+	if not width or width < 0 then width = 277 end
+	if not height or height < 0 then height = 67 end
 
 	frame:SetWidth(width)
 	frame:SetHeight(height)
