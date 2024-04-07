@@ -11,6 +11,8 @@
 ## X-WoWI-ID: 12374
 ## X-Wago-ID: BO67mgG3
 ## Notes: A simple addon to move the default Blizzard Group Loot Roll Windows
+## Notes-zhCN: 移动暴雪自带战利品窗口的简单插件。
+## Notes-zhTW: 移動暴雪自帶戰利品窗口的簡單插件。
 ## OptionalDeps: tekDebug
 ## SavedVariables: LRMDB
 
@@ -18,6 +20,8 @@ libs\LibStub\LibStub.lua
 libs\AceLocale-3.0\AceLocale-3.0.xml
 
 locale\enUS.lua
+locale\zhCN.lua
+locale\zhTW.lua
 
 LootRollMover.lua
 config.lua
