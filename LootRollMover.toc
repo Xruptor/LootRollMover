@@ -5,7 +5,7 @@
 ## Interface-Cata: 40400
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 5.7
+## Version: 5.8
 ## IconTexture: 237284
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
