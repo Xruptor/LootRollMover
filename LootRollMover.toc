@@ -1,10 +1,7 @@
-## Interface: 100207
-## Interface-Retail: 100207
-## Interface-Classic: 11502
-## Interface-Cata: 40400
+## Interface: 100207, 110000, 110002, 11502, 40400
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 6.0
+## Version: 6.1
 ## IconTexture: 237284
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
