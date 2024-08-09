@@ -65,6 +65,7 @@ function addon:EnableAddon()
 	--setup the DB
 	if not LRMDB then LRMDB = {} end
 	if LRMDB.scale == nil then LRMDB.scale = 1 end
+	if LRMDB.addonLoginMsg == nil then LRMDB.addonLoginMsg = true end
 
 	--draw the anchor
 	self:DrawAnchor()
@@ -106,8 +107,10 @@ function addon:EnableAddon()
 
 	if addon.configFrame then addon.configFrame:EnableConfig() end
 
-	local ver = C_AddOns.GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
-	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
+	if LRMDB.addonLoginMsg then
+		local ver = C_AddOns.GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
+		DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
+	end
 end
 
 --[[------------------------

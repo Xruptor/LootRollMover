@@ -149,6 +149,24 @@ function configFrame:EnableConfig()
 
 	addon.aboutPanel = LoadAboutFrame()
 
+	--login message
+	local btnAddonLoadedChk = createCheckbutton(addon.aboutPanel, L.AddonLoginMsg)
+	btnAddonLoadedChk:SetScript("OnShow", function() btnAddonLoadedChk:SetChecked(LRMDB.addonLoginMsg) end)
+	btnAddonLoadedChk.func = function(slashSwitch)
+		local value = LRMDB.addonLoginMsg
+		if not slashSwitch then value = LRMDB.addonLoginMsg end
+
+		if value then
+			LRMDB.addonLoginMsg = false
+		else
+			LRMDB.addonLoginMsg = true
+		end
+	end
+	btnAddonLoadedChk:SetScript("OnClick", btnAddonLoadedChk.func)
+
+	addConfigEntry(btnAddonLoadedChk, 0, -30)
+	addon.aboutPanel.btnAddonLoadedChk = btnAddonLoadedChk
+
 	--anchor
 	local btnAnchor = createButton(addon.aboutPanel, L.SlashAnchorText)
 	btnAnchor.func = function()

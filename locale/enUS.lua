@@ -21,3 +21,4 @@ L.SlashScaleInfo = "Set the scale of the LootRollMover loot frames (0.5 - 5)."
 L.SlashScaleText = "LootRollMover loot frame Scale"
 
 L.DragFrameInfo = "LootRollMover\n\nRight click when finished dragging"
+L.AddonLoginMsg = "Show addon loaded announcement at login."
