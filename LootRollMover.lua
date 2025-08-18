@@ -163,15 +163,18 @@ local function RepositionLootFrames()
 	end
 end
 
-
+--AlertFrame (are for Toasts like achievements but can show loot sometimes)
+--https://www.wowinterface.com/forums/showthread.php?t=58990
 
 hooksecurefunc("GroupLootContainer_OnLoad", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
 hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
 hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
---hooksecurefunc("GroupLootFrame_OpenNewFrame", RepositionLootFrames)
---hooksecurefunc("GroupLootFrame_OnEvent", RepositionLootFrames)
---hooksecurefunc("AlertFrame_FixAnchors", RepositionLootFrames)
+
+hooksecurefunc("BonusRollFrame_OnLoad", RepositionLootFrames)
+hooksecurefunc("BonusRollFrame_StartBonusRoll", RepositionLootFrames)
+hooksecurefunc("BonusRollFrame_OnUpdate", RepositionLootFrames)
+hooksecurefunc("BonusRollFrame_OnShow", RepositionLootFrames)
 
 function addon:DrawAnchor()
 
