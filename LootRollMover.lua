@@ -165,16 +165,32 @@ end
 
 --AlertFrame (are for Toasts like achievements but can show loot sometimes)
 --https://www.wowinterface.com/forums/showthread.php?t=58990
+if _G["GroupLootContainer_OnLoad"] then
+	hooksecurefunc("GroupLootContainer_OnLoad", RepositionLootFrames)
+end
+if _G["GroupLootContainer_RemoveFrame"] then
+	hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
+end
+if _G["GroupLootContainer_Update"] then
+	hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
+end
+if _G["GroupLootFrame_OnShow"] then
+	hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
+end
 
-hooksecurefunc("GroupLootContainer_OnLoad", RepositionLootFrames)
-hooksecurefunc("GroupLootContainer_RemoveFrame", RepositionLootFrames)
-hooksecurefunc("GroupLootContainer_Update", RepositionLootFrames)
-hooksecurefunc("GroupLootFrame_OnShow", RepositionLootFrames)
-
-hooksecurefunc("BonusRollFrame_OnLoad", RepositionLootFrames)
-hooksecurefunc("BonusRollFrame_StartBonusRoll", RepositionLootFrames)
-hooksecurefunc("BonusRollFrame_OnUpdate", RepositionLootFrames)
-hooksecurefunc("BonusRollFrame_OnShow", RepositionLootFrames)
+--Bonus Rolls found on Live Servers
+if _G["BonusRollFrame_OnLoad"] then
+	hooksecurefunc("BonusRollFrame_OnLoad", RepositionLootFrames)
+end
+if _G["BonusRollFrame_StartBonusRoll"] then
+	hooksecurefunc("BonusRollFrame_StartBonusRoll", RepositionLootFrames)
+end
+if _G["BonusRollFrame_OnUpdate"] then
+	hooksecurefunc("BonusRollFrame_OnUpdate", RepositionLootFrames)
+end
+if _G["BonusRollFrame_OnShow"] then
+	hooksecurefunc("BonusRollFrame_OnShow", RepositionLootFrames)
+end
 
 function addon:DrawAnchor()
 
