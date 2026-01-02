@@ -170,12 +170,17 @@ function configFrame:EnableConfig()
 	--anchor
 	local btnAnchor = createButton(addon.aboutPanel, L.SlashAnchorText)
 	btnAnchor.func = function()
-		if _G["LootRollMoverAnchor_Frame"]:IsVisible() then
-			_G["LootRollMoverAnchor_Frame"]:Hide()
+		if _G.LootRollMoverAnchor_Frame:IsVisible() then
+			_G.LootRollMoverAnchor_Frame:Hide()
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashAnchorOff)
 		else
-			_G["LootRollMoverAnchor_Frame"]:Show()
+			_G.LootRollMoverAnchor_Frame:Show()
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashAnchorOn)
+		end
+		if _G.LRM_AlertFrame_Anchor:IsVisible() then
+			_G.LRM_AlertFrame_Anchor:Hide()
+		else
+			_G.LRM_AlertFrame_Anchor:Show()
 		end
 	end
 	btnAnchor:SetScript("OnClick", btnAnchor.func)
@@ -187,9 +192,12 @@ function configFrame:EnableConfig()
 	local btnReset = createButton(addon.aboutPanel, L.SlashResetText)
 	btnReset.func = function()
 		DEFAULT_CHAT_FRAME:AddMessage(L.SlashResetAlert)
-		_G["LootRollMoverAnchor_Frame"]:ClearAllPoints()
-		_G["LootRollMoverAnchor_Frame"]:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-		_G["LootRollMoverAnchor_Frame"]:Show()
+		_G.LootRollMoverAnchor_Frame:ClearAllPoints()
+		_G.LootRollMoverAnchor_Frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+		_G.LootRollMoverAnchor_Frame:Show()
+		_G.LRM_AlertFrame_Anchor:ClearAllPoints()
+		_G.LRM_AlertFrame_Anchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+		_G.LRM_AlertFrame_Anchor:Show()
 	end
 	btnReset:SetScript("OnClick", btnReset.func)
 

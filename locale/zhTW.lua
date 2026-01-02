@@ -20,4 +20,4 @@ L.SlashScaleSetInvalid = "LootRollMover: 數值無效！數字必須來自[0.5 -
 L.SlashScaleInfo = "設置 LootRollMover 戰利品窗口比例 (0.5 - 5)。"
 L.SlashScaleText = "戰利品窗口比例。"
 
-L.DragFrameInfo = "LootRollMover\n\n移動到位後右鍵點擊。"
+L.DragFrameInfo = "移動到位後右鍵點擊。"
