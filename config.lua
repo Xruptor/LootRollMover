@@ -1,13 +1,22 @@
-local ADDON_NAME, addon = ...
+local ADDON_NAME, private = ...
 if not _G[ADDON_NAME] then
 	_G[ADDON_NAME] = CreateFrame("Frame", ADDON_NAME, UIParent, BackdropTemplateMixin and "BackdropTemplate")
 end
-addon = _G[ADDON_NAME]
+local addon = _G[ADDON_NAME]
 
 addon.configFrame = CreateFrame("frame", ADDON_NAME.."_config_eventFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 local configFrame = addon.configFrame
 
-local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
+addon.private = private
+addon.L = (private and private.L) or addon.L or {}
+local L = addon.L
+local ClampScale = addon.ClampScale or function(value)
+	value = tonumber(value) or 1
+	if value < 0.5 then return 0.5 end
+	if value > 5 then return 5 end
+	return value
+end
+local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 
 local lastObject
 local function addConfigEntry(objEntry, adjustX, adjustY)
@@ -28,7 +37,10 @@ local function createCheckbutton(parentFrame, displayText)
 	chkBoxIndex = chkBoxIndex + 1
 
 	local checkbutton = CreateFrame("CheckButton", ADDON_NAME.."_config_chkbtn_" .. chkBoxIndex, parentFrame, "ChatConfigCheckButtonTemplate")
-	getglobal(checkbutton:GetName() .. 'Text'):SetText(" "..displayText)
+	local label = _G[checkbutton:GetName() .. "Text"]
+	if label then
+		label:SetText(" " .. (displayText or ""))
+	end
 
 	return checkbutton
 end
@@ -97,7 +109,7 @@ local function LoadAboutFrame()
 	about:Hide()
 
     local fields = {"Version", "Author"}
-	local notes = C_AddOns.GetAddOnMetadata(ADDON_NAME, "Notes")
+	local notes = (GetMetadata and GetMetadata(ADDON_NAME, "Notes")) or ""
 
     local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 
@@ -115,7 +127,7 @@ local function LoadAboutFrame()
 
 	local anchor
 	for _,field in pairs(fields) do
-		local val = C_AddOns.GetAddOnMetadata(ADDON_NAME, field)
+		local val = GetMetadata and GetMetadata(ADDON_NAME, field)
 		if val then
 			local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
 			title:SetWidth(75)
@@ -153,14 +165,7 @@ function configFrame:EnableConfig()
 	local btnAddonLoadedChk = createCheckbutton(addon.aboutPanel, L.AddonLoginMsg)
 	btnAddonLoadedChk:SetScript("OnShow", function() btnAddonLoadedChk:SetChecked(LRMDB.addonLoginMsg) end)
 	btnAddonLoadedChk.func = function(slashSwitch)
-		local value = LRMDB.addonLoginMsg
-		if not slashSwitch then value = LRMDB.addonLoginMsg end
-
-		if value then
-			LRMDB.addonLoginMsg = false
-		else
-			LRMDB.addonLoginMsg = true
-		end
+		LRMDB.addonLoginMsg = not LRMDB.addonLoginMsg
 	end
 	btnAddonLoadedChk:SetScript("OnClick", btnAddonLoadedChk.func)
 
@@ -207,19 +212,17 @@ function configFrame:EnableConfig()
 	--scale
 	local sliderScale = createSlider(addon.aboutPanel, L.SlashScaleText, 0.5, 5, 0.1)
 	sliderScale:SetScript("OnShow", function()
-		sliderScale:SetValue(LRMDB.scale)
-		sliderScale.currVal:SetText("("..LRMDB.scale..")")
+		local scale = ClampScale(LRMDB.scale)
+		LRMDB.scale = scale
+		sliderScale:SetValue(scale)
+		sliderScale.currVal:SetText("("..scale..")")
 	end)
 	sliderScale.sliderFunc = function(self, value)
-		value = math.floor(value * 10) / 10
-		if value < 0.5 then value = 0.5 end --always make sure we are 0.5 as the highest zero.  Anything lower will make the frame dissapear
-		if value > 5 then value = 5 end --nothing bigger than this
+		value = ClampScale(math.floor(value * 10) / 10)
 		sliderScale.currVal:SetText("("..value..")")
-		sliderScale:SetValue(value)
 	end
 	sliderScale.sliderMouseUp = function(self, button)
-		local value = math.floor(self:GetValue() * 10) / 10
-		addon:SetScale(value)
+		addon:SetScale(ClampScale(math.floor(self:GetValue() * 10) / 10))
 	end
 	sliderScale:SetScript("OnValueChanged", sliderScale.sliderFunc)
 	sliderScale:SetScript("OnMouseUp", sliderScale.sliderMouseUp)

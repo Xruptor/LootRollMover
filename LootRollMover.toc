@@ -1,7 +1,7 @@
 ## Interface: 120000, 110207, 50503, 40402, 38000, 30405, 20504, 11508
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 6.8
+## Version: 7.0
 ## IconTexture: 237284
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
@@ -12,10 +12,16 @@
 ## OptionalDeps: tekDebug
 ## SavedVariables: LRMDB
 
-libs\LibStub\LibStub.lua
-libs\AceLocale-3.0\AceLocale-3.0.xml
-
+locale\locales.lua
 locale\enUS.lua
+locale\deDE.lua
+locale\esES.lua
+locale\esMX.lua
+locale\frFR.lua
+locale\itIT.lua
+locale\koKR.lua
+locale\ptBR.lua
+locale\ruRU.lua
 locale\zhCN.lua
 locale\zhTW.lua
 

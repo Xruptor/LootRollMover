@@ -1,6 +1,6 @@
-local ADDON_NAME, addon = ...
+local ADDON_NAME, private = ...
 
-local L = LibStub("AceLocale-3.0"):NewLocale(ADDON_NAME, "enUS", true)
+local L = private:NewLocale("enUS", true)
 if not L then return end
 
 L.SlashAnchor = "anchor"
@@ -8,6 +8,9 @@ L.SlashAnchorText = "Toggle Frame Anchor"
 L.SlashAnchorOn = "LootRollMover: Anchor now [|cFF99CC33SHOWN|r]"
 L.SlashAnchorOff = "LootRollMover: Anchor now [|cFF99CC33HIDDEN|r]"
 L.SlashAnchorInfo = "Toggles movable anchor."
+
+L.LRM_Anchor = "LootRollMover Anchor"
+L.Alert_Anchor = "Alert Anchor"
 
 L.SlashReset = "reset"
 L.SlashResetText = "Reset Anchor Position"
