@@ -1,7 +1,7 @@
 ## Interface: 120000, 110207, 50503, 40402, 38000, 30405, 20505, 11508
 ## Title: LootRollMover
 ## Author: Xruptor
-## Version: 7.1
+## Version: 7.2
 ## IconTexture: 237284
 ## X-Curse-Project-ID: 17488
 ## X-WoWI-ID: 12374
