@@ -1,4 +1,23 @@
 --LootRollMover by Xruptor
+-- Changes made:
+-- - Centralized and localized hot-path globals for fewer lookups and safer access.
+-- - Made addon enable and hook setup idempotent to avoid repeated work.
+-- - Added defensive guards around frame access and scaling to reduce errors and taint risk.
+-- - Streamlined event handling and slash parsing for clarity and early returns.
+
+local _G = _G
+local CreateFrame = _G.CreateFrame
+local UIParent = _G.UIParent
+local DEFAULT_CHAT_FRAME = _G.DEFAULT_CHAT_FRAME
+local hooksecurefunc = _G.hooksecurefunc
+local IsLoggedIn = _G.IsLoggedIn
+local issecure = _G.issecure
+local tonumber = tonumber
+local tostring = tostring
+local type = type
+local string_format = string.format
+local string_lower = string.lower
+local string_match = string.match
 
 local ADDON_NAME, private = ...
 if not _G[ADDON_NAME] then
@@ -11,6 +30,20 @@ addon.private = private
 addon.L = (private and private.L) or addon.L or {}
 local L = addon.L
 
+local ANCHOR_BACKDROP = {
+	bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+	edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+	tile = true,
+	tileSize = 16,
+	edgeSize = 16,
+	insets = { left = 5, right = 5, top = 5, bottom = 5 },
+}
+
+local ANCHOR_OFFSET_X = 4
+local ANCHOR_OFFSET_Y = 2
+local STACK_STEP_Y = 3
+local ALERT_OFFSET_Y = -15
+
 local WOW_PROJECT_ID = _G.WOW_PROJECT_ID
 local WOW_PROJECT_MAINLINE = _G.WOW_PROJECT_MAINLINE
 local WOW_PROJECT_CLASSIC = _G.WOW_PROJECT_CLASSIC
@@ -22,27 +55,36 @@ addon.IsClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
 --BSYC.IsTBC_C = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC
 addon.IsWLK_C = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
 
-addon:RegisterEvent("ADDON_LOADED")
-addon:SetScript("OnEvent", function(self, event, ...)
-	if event == "ADDON_LOADED" or event == "PLAYER_LOGIN" then
-		if event == "ADDON_LOADED" then
-			local arg1 = ...
-			if arg1 and arg1 == ADDON_NAME then
-				self:UnregisterEvent("ADDON_LOADED")
+local function OnEvent(self, event, ...)
+	if event == "ADDON_LOADED" then
+		local arg1 = ...
+		if arg1 == ADDON_NAME then
+			self:UnregisterEvent("ADDON_LOADED")
+			if IsLoggedIn() then
+				self:EnableAddon(event, ...)
+			else
 				self:RegisterEvent("PLAYER_LOGIN")
 			end
-			return
 		end
+		return
+	end
+
+	if event == "PLAYER_LOGIN" then
 		if IsLoggedIn() then
 			self:EnableAddon(event, ...)
 			self:UnregisterEvent("PLAYER_LOGIN")
 		end
 		return
 	end
-	if self[event] then
-		return self[event](self, event, ...)
+
+	local handler = self[event]
+	if handler then
+		return handler(self, event, ...)
 	end
-end)
+end
+
+addon:RegisterEvent("ADDON_LOADED")
+addon:SetScript("OnEvent", OnEvent)
 
 local function CanAccessObject(obj)
 	return obj and (issecure() or not obj:IsForbidden())
@@ -66,14 +108,84 @@ local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 local RepositionLootFrames
 local SetupHooks
 
+local function EnsureLayout(frameName)
+	if type(frameName) ~= "string" then return nil end
+	if not _G[frameName] then return nil end
+	LRMDB = LRMDB or {}
+
+	local opt = LRMDB[frameName]
+	if not opt then
+		opt = {}
+		LRMDB[frameName] = opt
+	end
+
+	if opt.point == nil then opt.point = "CENTER" end
+	if opt.relativePoint == nil then opt.relativePoint = "CENTER" end
+	if opt.xOfs == nil then opt.xOfs = 0 end
+	if opt.yOfs == nil then opt.yOfs = 0 end
+
+	return opt
+end
+
+local function CreateAnchorFrame(name, width, height, labelText, r, g, b, scale)
+	local frame = _G[name]
+	if not frame then
+		frame = CreateFrame("Frame", name, UIParent, BackdropTemplateMixin and "BackdropTemplate")
+	end
+
+	frame:SetFrameStrata("DIALOG")
+	frame:SetSize(width, height)
+	frame:EnableMouse(true)
+	frame:SetMovable(true)
+
+	if not frame._lrm_scripts then
+		frame._lrm_scripts = true
+		frame:SetScript("OnMouseDown", function(self, button)
+			if button == "LeftButton" then
+				self.isMoving = true
+				self:StartMoving()
+			else
+				self:Hide()
+			end
+		end)
+		frame:SetScript("OnMouseUp", function(self)
+			if self.isMoving then
+				self.isMoving = nil
+				self:StopMovingOrSizing()
+				addon:SaveLayout(self:GetName())
+			end
+		end)
+	end
+
+	local label = frame._lrm_label
+	if not label then
+		label = frame:CreateFontString()
+		label:SetAllPoints(frame)
+		label:SetFontObject("GameFontNormalSmall")
+		frame._lrm_label = label
+	end
+	label:SetText(labelText)
+
+	frame:SetBackdrop(ANCHOR_BACKDROP)
+	frame:SetBackdropColor(r, g, b, 1)
+	frame:SetBackdropBorderColor(r, g, b, 1)
+	SetScaleIfNeeded(frame, scale)
+	frame:Hide()
+
+	return frame
+end
+
 --[[------------------------
 	ENABLE
 --------------------------]]
 
 function addon:EnableAddon()
+	if self._enabled then return end
+	self._enabled = true
 
-	if CanAccessObject(_G.GroupLootContainer) then
-		_G.GroupLootContainer:EnableMouse(false)
+	local groupLootContainer = _G.GroupLootContainer
+	if CanAccessObject(groupLootContainer) then
+		groupLootContainer:EnableMouse(false)
 	end
 
 	if not self.IsRetail and _G.UIPARENT_MANAGED_FRAME_POSITIONS then
@@ -81,7 +193,7 @@ function addon:EnableAddon()
 	end
 
 	--setup the DB
-	if not LRMDB then LRMDB = {} end
+	LRMDB = LRMDB or {}
 	if LRMDB.scale == nil then LRMDB.scale = 1 end
 	if LRMDB.addonLoginMsg == nil then LRMDB.addonLoginMsg = true end
 	LRMDB.scale = ClampScale(LRMDB.scale)
@@ -102,17 +214,21 @@ function addon:EnableAddon()
 		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashScale.." # - "..L.SlashScaleInfo)
 	end
 	SlashCmdList["LOOTROLLMOVER"] = function(cmd)
-		local subcmd, rest = cmd:match("^%s*(%S+)%s*(.-)%s*$")
+		local subcmd, rest = string_match(cmd or "", "^%s*(%S+)%s*(.-)%s*$")
 		if not subcmd then
 			PrintHelp()
 			return
 		end
-		subcmd = subcmd:lower()
+		subcmd = string_lower(subcmd)
 		if subcmd == L.SlashAnchor then
-			addon.aboutPanel.btnAnchor.func()
+			if addon.aboutPanel and addon.aboutPanel.btnAnchor then
+				addon.aboutPanel.btnAnchor.func()
+			end
 			return
 		elseif subcmd == L.SlashReset then
-			addon.aboutPanel.btnReset.func()
+			if addon.aboutPanel and addon.aboutPanel.btnReset then
+				addon.aboutPanel.btnReset.func()
+			end
 			return
 		elseif subcmd == L.SlashScale then
 			local scalenum = tonumber(rest)
@@ -128,11 +244,11 @@ function addon:EnableAddon()
 	end
 
 	if addon.configFrame then addon.configFrame:EnableConfig() end
-	SetupHooks()
+	SetupHooks() -- hooks are applied after login to avoid duplicate work and ensure Blizzard frames exist.
 
 	if LRMDB.addonLoginMsg then
 		local ver = (GetMetadata and GetMetadata(ADDON_NAME, "Version")) or "1.0"
-		DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
+		DEFAULT_CHAT_FRAME:AddMessage(string_format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
 	end
 end
 
@@ -150,16 +266,18 @@ RepositionLootFrames = function()
 	local scale = ClampScale(LRMDB.scale)
 	if LRMDB.scale ~= scale then LRMDB.scale = scale end
 
-	if _G.GroupLootContainer and CanAccessObject(_G.GroupLootContainer) then
-		_G.GroupLootContainer:ClearAllPoints()
-		_G.GroupLootContainer:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", 4, 2)
-		SetScaleIfNeeded(_G.GroupLootContainer, scale)
+	local groupLootContainer = _G.GroupLootContainer
+	if CanAccessObject(groupLootContainer) then
+		groupLootContainer:ClearAllPoints()
+		groupLootContainer:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
+		SetScaleIfNeeded(groupLootContainer, scale)
 	end
 
-	if _G.AlertFrame and CanAccessObject(_G.AlertFrame) then
-		_G.AlertFrame:ClearAllPoints()
-		_G.AlertFrame:SetPoint("CENTER", _G.LRM_AlertFrame_Anchor, "BOTTOM", 0, -15)
-		SetScaleIfNeeded(_G.AlertFrame, scale)
+	local alertFrame = _G.AlertFrame
+	if CanAccessObject(alertFrame) then
+		alertFrame:ClearAllPoints()
+		alertFrame:SetPoint("CENTER", _G.LRM_AlertFrame_Anchor, "BOTTOM", 0, ALERT_OFFSET_Y)
+		SetScaleIfNeeded(alertFrame, scale)
 
 		--do each individual alert frame that is queued
 		--for i, alertFrameSubSystem in ipairs(_G.AlertFrame.alertFrameSubSystems) do
@@ -171,36 +289,39 @@ RepositionLootFrames = function()
 		--_G.AlertFrame.baseAnchorFrame:SetPoint("BOTTOMLEFT", _G.LRM_AlertFrame_Anchor, "BOTTOMLEFT", 4, 2)
 	end
 
-	if BonusRollFrame and CanAccessObject(BonusRollFrame) then
-		BonusRollFrame:ClearAllPoints()
-		BonusRollFrame:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", 4, 2)
-		SetScaleIfNeeded(BonusRollFrame, scale)
+	local bonusRollFrame = _G.BonusRollFrame
+	if CanAccessObject(bonusRollFrame) then
+		bonusRollFrame:ClearAllPoints()
+		bonusRollFrame:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
+		SetScaleIfNeeded(bonusRollFrame, scale)
 
-		for i=1, NUM_GROUP_LOOT_FRAMES or 4 do
+		local maxFrames = _G.NUM_GROUP_LOOT_FRAMES or 4
+		for i=1, maxFrames do
 			frame = _G["BonusRollFrame" .. i]
 			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
 				if i == 1 then
-					frame:SetPoint("BOTTOM", "BonusRollFrame", "TOP", 0, 3)
+					frame:SetPoint("BOTTOM", "BonusRollFrame", "TOP", 0, STACK_STEP_Y)
 				else
-					frame:SetPoint("BOTTOM", "BonusRollFrame" .. (i-1), "TOP", 0, 3)
+					frame:SetPoint("BOTTOM", "BonusRollFrame" .. (i-1), "TOP", 0, STACK_STEP_Y)
 				end
 				SetScaleIfNeeded(frame, scale)
 			end
 		end
 	end
-	for i=1, NUM_GROUP_LOOT_FRAMES or 4 do
+	local maxFrames = _G.NUM_GROUP_LOOT_FRAMES or 4
+	for i=1, maxFrames do
 		frame = _G["GroupLootFrame" .. i]
 		if i == 1 then
 			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
-				frame:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", 4, 2)
+				frame:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
 				SetScaleIfNeeded(frame, scale)
 			end
 		elseif i > 1 then
 			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
-				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, 3)
+				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, STACK_STEP_Y)
 				SetScaleIfNeeded(frame, scale)
 			end
 		end
@@ -222,7 +343,9 @@ local function SafeHook(nameOrObject, method)
 	end
 end
 
+local hooksApplied = false
 SetupHooks = function()
+	if hooksApplied then return end
 	if _G.GroupLootContainer_OnLoad then
 		SafeHook("GroupLootContainer_OnLoad")
 	end
@@ -258,9 +381,11 @@ SetupHooks = function()
 		SafeHook(_G.AlertFrame, "UpdateAnchors")
 		_G.AlertFrame.ignoreFramePositionManager = true
 	end
+
+	hooksApplied = true
 end
 
-SetupHooks()
+-- hooks are applied during EnableAddon to avoid early missing globals.
 
 -- For testing Alert purposes
 -- https://wowinterface.com/forums/showthread.php?t=53443
@@ -279,54 +404,8 @@ SetupHooks()
 
 function addon:DrawAnchor()
 
-	local backdrop = {
-		bgFile = "Interface/Tooltips/UI-Tooltip-Background",
-		edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-		tile = true,
-		tileSize = 16,
-		edgeSize = 16,
-		insets = { left = 5, right = 5, top = 5, bottom = 5 }
-	}
-
 	local scale = ClampScale(LRMDB and LRMDB.scale)
 	if LRMDB then LRMDB.scale = scale end
-
-	local function CreateAnchorFrame(name, width, height, labelText, r, g, b)
-		local frame = CreateFrame("Frame", name, UIParent, BackdropTemplateMixin and "BackdropTemplate")
-		frame:SetFrameStrata("DIALOG")
-		frame:SetSize(width, height)
-		frame:EnableMouse(true)
-		frame:SetMovable(true)
-
-		frame:SetScript("OnMouseDown", function(self, button)
-			if button == "LeftButton" then
-				self.isMoving = true
-				self:StartMoving()
-			else
-				self:Hide()
-			end
-		end)
-		frame:SetScript("OnMouseUp", function(self)
-			if self.isMoving then
-				self.isMoving = nil
-				self:StopMovingOrSizing()
-				addon:SaveLayout(self:GetName())
-			end
-		end)
-
-		local stringA = frame:CreateFontString()
-		stringA:SetAllPoints(frame)
-		stringA:SetFontObject("GameFontNormalSmall")
-		stringA:SetText(labelText)
-
-		frame:SetBackdrop(backdrop)
-		frame:SetBackdropColor(r, g, b, 1)
-		frame:SetBackdropBorderColor(r, g, b, 1)
-		frame:SetScale(scale)
-		frame:Hide()
-
-		return frame
-	end
 
 	local groupLootFrame = _G.GroupLootFrame1
 	local groupWidth = (groupLootFrame and groupLootFrame.GetWidth and groupLootFrame:GetWidth()) or 277
@@ -339,7 +418,8 @@ function addon:DrawAnchor()
 		groupWidth,
 		groupHeight,
 		L.LRM_Anchor.."\n\n"..L.DragFrameInfo,
-		0.75, 0, 0
+		0.75, 0, 0,
+		scale
 	)
 
 	--Alert Frame anchor
@@ -357,14 +437,15 @@ function addon:DrawAnchor()
 		alertWidth,
 		alertHeight,
 		L.Alert_Anchor.."\n\n"..L.DragFrameInfo,
-		0, 0.75, 0
+		0, 0.75, 0,
+		scale
 	)
 end
 
 function addon:SetScale(value)
 	local scale = ClampScale(value)
 	LRMDB.scale = scale
-	DEFAULT_CHAT_FRAME:AddMessage(string.format(L.SlashScaleSet, scale))
+	DEFAULT_CHAT_FRAME:AddMessage(string_format(L.SlashScaleSet, scale))
 	if _G.LootRollMoverAnchor_Frame then
 		_G.LootRollMoverAnchor_Frame:SetScale(scale)
 	end
@@ -378,23 +459,10 @@ end
 	LAYOUT SAVE/RESTORE
 --------------------------]]
 function addon:SaveLayout(frame)
-	if type(frame) ~= "string" then return end
-	if not _G[frame] then return end
-	if not LRMDB then LRMDB = {} end
+	local opt = EnsureLayout(frame)
+	if not opt then return end
 
-	local opt = LRMDB[frame] or nil
-
-	if not opt then
-		LRMDB[frame] = {
-			["point"] = "CENTER",
-			["relativePoint"] = "CENTER",
-			["xOfs"] = 0,
-			["yOfs"] = 0,
-		}
-		opt = LRMDB[frame]
-	end
-
-	local point, relativeTo, relativePoint, xOfs, yOfs = _G[frame]:GetPoint()
+	local point, _, relativePoint, xOfs, yOfs = _G[frame]:GetPoint()
 	opt.point = point
 	opt.relativePoint = relativePoint
 	opt.xOfs = xOfs
@@ -402,21 +470,8 @@ function addon:SaveLayout(frame)
 end
 
 function addon:RestoreLayout(frame)
-	if type(frame) ~= "string" then return end
-	if not _G[frame] then return end
-	if not LRMDB then LRMDB = {} end
-
-	local opt = LRMDB[frame] or nil
-
-	if not opt then
-		LRMDB[frame] = {
-			["point"] = "CENTER",
-			["relativePoint"] = "CENTER",
-			["xOfs"] = 0,
-			["yOfs"] = 0,
-		}
-		opt = LRMDB[frame]
-	end
+	local opt = EnsureLayout(frame)
+	if not opt then return end
 
 	_G[frame]:ClearAllPoints()
 	_G[frame]:SetPoint(opt.point, UIParent, opt.relativePoint, opt.xOfs, opt.yOfs)
