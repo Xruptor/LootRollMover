@@ -7,6 +7,7 @@ local _G = _G
 local CreateFrame = _G.CreateFrame
 local UIParent = _G.UIParent
 local DEFAULT_CHAT_FRAME = _G.DEFAULT_CHAT_FRAME
+local print = _G.print
 local ipairs = ipairs
 local math_floor = math.floor
 local string_gsub = string.gsub
@@ -30,6 +31,20 @@ local ClampScale = addon.ClampScale or function(value)
 	if value < 0.5 then return 0.5 end
 	if value > 5 then return 5 end
 	return value
+end
+local PrintMessage = addon.PrintMessage or function(message)
+	if message == nil then return end
+	if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+		DEFAULT_CHAT_FRAME:AddMessage(message)
+	else
+		print(message)
+	end
+end
+local function IsAlertAnchorEnabled()
+	if type(addon.IsAlertAnchorEnabled) == "function" then
+		return addon:IsAlertAnchorEnabled()
+	end
+	return true
 end
 local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 
@@ -200,20 +215,25 @@ function configFrame:EnableConfig()
 	btnAnchor.func = function()
 		local lootAnchor = _G.LootRollMoverAnchor_Frame
 		local alertAnchor = _G.LRM_AlertFrame_Anchor
+		local alertEnabled = IsAlertAnchorEnabled()
 		if lootAnchor then
 			if lootAnchor:IsVisible() then
 				lootAnchor:Hide()
-				DEFAULT_CHAT_FRAME:AddMessage(L.SlashAnchorOff)
+				PrintMessage(L.SlashAnchorOff)
 			else
 				lootAnchor:Show()
-				DEFAULT_CHAT_FRAME:AddMessage(L.SlashAnchorOn)
+				PrintMessage(L.SlashAnchorOn)
 			end
 		end
 		if alertAnchor then
-			if alertAnchor:IsVisible() then
-				alertAnchor:Hide()
+			if alertEnabled then
+				if alertAnchor:IsVisible() then
+					alertAnchor:Hide()
+				else
+					alertAnchor:Show()
+				end
 			else
-				alertAnchor:Show()
+				alertAnchor:Hide()
 			end
 		end
 	end
@@ -222,21 +242,36 @@ function configFrame:EnableConfig()
 	addConfigEntry(btnAnchor, 0, -30)
 	addon.aboutPanel.btnAnchor = btnAnchor
 
+	--alert system toggle
+	local btnAlert = createButton(addon.aboutPanel, L.AlertAnchorText or "Toggle Alert System")
+	btnAlert.func = function()
+		if addon and addon.ToggleAlertSystem then
+			addon:ToggleAlertSystem()
+		end
+	end
+	btnAlert:SetScript("OnClick", btnAlert.func)
+
+	addConfigEntry(btnAlert, 0, -25)
+	addon.aboutPanel.btnAlert = btnAlert
+
 	--reset
 	local btnReset = createButton(addon.aboutPanel, L.SlashResetText)
 	btnReset.func = function()
-		DEFAULT_CHAT_FRAME:AddMessage(L.SlashResetAlert)
+		PrintMessage(L.SlashResetAlert)
 		local lootAnchor = _G.LootRollMoverAnchor_Frame
 		local alertAnchor = _G.LRM_AlertFrame_Anchor
+		local alertEnabled = IsAlertAnchorEnabled()
 		if lootAnchor then
 			lootAnchor:ClearAllPoints()
 			lootAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 			lootAnchor:Show()
 		end
-		if alertAnchor then
+		if alertAnchor and alertEnabled then
 			alertAnchor:ClearAllPoints()
 			alertAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 			alertAnchor:Show()
+		elseif alertAnchor then
+			alertAnchor:Hide()
 		end
 	end
 	btnReset:SetScript("OnClick", btnReset.func)

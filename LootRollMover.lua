@@ -11,8 +11,8 @@ local UIParent = _G.UIParent
 local DEFAULT_CHAT_FRAME = _G.DEFAULT_CHAT_FRAME
 local hooksecurefunc = _G.hooksecurefunc
 local IsLoggedIn = _G.IsLoggedIn
-local issecure = _G.issecure
 local IsAddOnLoaded = _G.IsAddOnLoaded
+local print = _G.print
 local tonumber = tonumber
 local tostring = tostring
 local type = type
@@ -31,6 +31,18 @@ addon.private = private
 addon.L = (private and private.L) or addon.L or {}
 local L = addon.L
 
+local function PrintMessage(message)
+	if message == nil then return end
+	local prefix = string_format("|cFF99CC33%s|r: ", ADDON_NAME)
+	if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+		DEFAULT_CHAT_FRAME:AddMessage(prefix .. message)
+	else
+		print(prefix .. message)
+	end
+end
+
+addon.PrintMessage = PrintMessage
+
 local ANCHOR_BACKDROP = {
 	bgFile = "Interface/Tooltips/UI-Tooltip-Background",
 	edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
@@ -43,7 +55,9 @@ local ANCHOR_BACKDROP = {
 local ANCHOR_OFFSET_X = 4
 local ANCHOR_OFFSET_Y = 2
 local STACK_STEP_Y = 3
-local ALERT_OFFSET_Y = -15
+local LOOT_ANCHOR_NAME = "LootRollMoverAnchor_Frame"
+local ALERT_ANCHOR_NAME = "LRM_AlertFrame_Anchor"
+local XAM_ADDON_NAME = "xanAchievementMover"
 
 local WOW_PROJECT_ID = _G.WOW_PROJECT_ID
 local WOW_PROJECT_MAINLINE = _G.WOW_PROJECT_MAINLINE
@@ -88,7 +102,11 @@ addon:RegisterEvent("ADDON_LOADED")
 addon:SetScript("OnEvent", OnEvent)
 
 local function CanAccessObject(obj)
-	return obj and (issecure() or not obj:IsForbidden())
+	if not obj then return false end
+	if type(obj.IsForbidden) == "function" and obj:IsForbidden() then
+		return false
+	end
+	return true
 end
 
 local function ClampScale(value)
@@ -108,8 +126,6 @@ addon.ClampScale = ClampScale
 local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 local RepositionLootFrames
 local SetupHooks
-local XAM_ADDON_NAME = "xanAchievementMover"
-local XAM_ANCHOR_NAME = "xanAchievementMover_Anchor"
 
 local function IsAddonLoaded(name)
 	if not name then return false end
@@ -120,6 +136,24 @@ local function IsAddonLoaded(name)
 		return IsAddOnLoaded(name)
 	end
 	return false
+end
+
+local function IsXanAchievementMoverLoaded()
+	return IsAddonLoaded(XAM_ADDON_NAME)
+end
+
+local function IsAlertSystemEnabled()
+	if type(LRMDB) ~= "table" then
+		return true
+	end
+	if LRMDB.alertEnabled == nil then
+		return true
+	end
+	return LRMDB.alertEnabled
+end
+
+function addon:IsAlertAnchorEnabled()
+	return IsAlertSystemEnabled() and not IsXanAchievementMoverLoaded()
 end
 
 local function EnsureLayout(frameName)
@@ -197,6 +231,11 @@ function addon:EnableAddon()
 	if self._enabled then return end
 	self._enabled = true
 
+	-- Ensure the Achievement UI is loaded so test alerts don't error before the frame exists.
+	if type(_G.AchievementFrame_LoadUI) == "function" and not _G.AchievementFrame then
+		_G.AchievementFrame_LoadUI()
+	end
+
 	local groupLootContainer = _G.GroupLootContainer
 	if CanAccessObject(groupLootContainer) then
 		groupLootContainer:EnableMouse(false)
@@ -210,22 +249,26 @@ function addon:EnableAddon()
 	LRMDB = LRMDB or {}
 	if LRMDB.scale == nil then LRMDB.scale = 1 end
 	if LRMDB.addonLoginMsg == nil then LRMDB.addonLoginMsg = true end
+	if LRMDB.alertEnabled == nil then LRMDB.alertEnabled = true end
 	LRMDB.scale = ClampScale(LRMDB.scale)
 
 	--draw the anchor
 	self:DrawAnchor()
 
 	--restore previous layout
-	self:RestoreLayout("LootRollMoverAnchor_Frame")
-	self:RestoreLayout("LRM_AlertFrame_Anchor")
+	self:RestoreLayout(LOOT_ANCHOR_NAME)
+	if self:IsAlertAnchorEnabled() then
+		self:RestoreLayout(ALERT_ANCHOR_NAME)
+	end
 
 	--slash commands
 	SLASH_LOOTROLLMOVER1 = "/lrm"
 	local function PrintHelp()
-		DEFAULT_CHAT_FRAME:AddMessage(ADDON_NAME, 64/255, 224/255, 208/255)
-		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashAnchor.." - "..L.SlashAnchorInfo)
-		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashReset.." - "..L.SlashResetInfo)
-		DEFAULT_CHAT_FRAME:AddMessage("/lrm "..L.SlashScale.." # - "..L.SlashScaleInfo)
+		PrintMessage("Available commands:")
+		PrintMessage("  /lrm "..L.SlashAnchor.." - "..L.SlashAnchorInfo)
+		PrintMessage("  /lrm "..(L.SlashAlert or "alert").." - "..(L.AlertAnchorText or "Toggle Alert System"))
+		PrintMessage("  /lrm "..L.SlashReset.." - "..L.SlashResetInfo)
+		PrintMessage("  /lrm "..L.SlashScale.." # - "..L.SlashScaleInfo)
 	end
 	SlashCmdList["LOOTROLLMOVER"] = function(cmd)
 		local subcmd, rest = string_match(cmd or "", "^%s*(%S+)%s*(.-)%s*$")
@@ -249,8 +292,11 @@ function addon:EnableAddon()
 			if scalenum and scalenum >= 0.5 and scalenum <= 5 then
 				addon:SetScale(scalenum)
 			else
-				DEFAULT_CHAT_FRAME:AddMessage(L.SlashScaleSetInvalid)
+				PrintMessage(L.SlashScaleSetInvalid)
 			end
+			return
+		elseif subcmd == (L.SlashAlert or "alert") then
+			addon:ToggleAlertSystem()
 			return
 		end
 
@@ -259,11 +305,16 @@ function addon:EnableAddon()
 
 	if addon.configFrame then addon.configFrame:EnableConfig() end
 	SetupHooks() -- hooks are applied after login to avoid duplicate work and ensure Blizzard frames exist.
-	self:SetupAchievementMoverSync()
+	if self:IsAlertAnchorEnabled() then
+		-- Ensure alert subsystems are anchored to the LRM alert anchor once we are enabled.
+		if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
+			_G.AlertFrame:UpdateAnchors()
+		end
+	end
 
 	if LRMDB.addonLoginMsg then
 		local ver = (GetMetadata and GetMetadata(ADDON_NAME, "Version")) or "1.0"
-		DEFAULT_CHAT_FRAME:AddMessage(string_format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /lrm", ADDON_NAME, ver or "1.0"))
+		PrintMessage(string_format("[v|cFF20ff20%s|r] loaded:   /lrm", ver or "1.0"))
 	end
 end
 
@@ -275,7 +326,7 @@ end
 --http://wowprogramming.com/utils/xmlbrowser/live/FrameXML/LootFrame.lua
 
 RepositionLootFrames = function()
-	if not _G.LootRollMoverAnchor_Frame or not _G.LRM_AlertFrame_Anchor then return end
+	if not _G[LOOT_ANCHOR_NAME] then return end
 	if not LRMDB then return end
 	local frame
 	local scale = ClampScale(LRMDB.scale)
@@ -284,30 +335,14 @@ RepositionLootFrames = function()
 	local groupLootContainer = _G.GroupLootContainer
 	if CanAccessObject(groupLootContainer) then
 		groupLootContainer:ClearAllPoints()
-		groupLootContainer:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
+		groupLootContainer:SetPoint("BOTTOMLEFT", _G[LOOT_ANCHOR_NAME], "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
 		SetScaleIfNeeded(groupLootContainer, scale)
-	end
-
-	local alertFrame = _G.AlertFrame
-	if CanAccessObject(alertFrame) then
-		alertFrame:ClearAllPoints()
-		alertFrame:SetPoint("CENTER", _G.LRM_AlertFrame_Anchor, "BOTTOM", 0, ALERT_OFFSET_Y)
-		SetScaleIfNeeded(alertFrame, scale)
-
-		--do each individual alert frame that is queued
-		--for i, alertFrameSubSystem in ipairs(_G.AlertFrame.alertFrameSubSystems) do
-			--alertFrameSubSystem:SetScale(LRMDB.scale)
-		--end
-
-		--set the base anchor frame location, it's usually the default AlertFrame but just in case it changes
-		--_G.AlertFrame.baseAnchorFrame:ClearAllPoints()
-		--_G.AlertFrame.baseAnchorFrame:SetPoint("BOTTOMLEFT", _G.LRM_AlertFrame_Anchor, "BOTTOMLEFT", 4, 2)
 	end
 
 	local bonusRollFrame = _G.BonusRollFrame
 	if CanAccessObject(bonusRollFrame) then
 		bonusRollFrame:ClearAllPoints()
-		bonusRollFrame:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
+		bonusRollFrame:SetPoint("BOTTOMLEFT", _G[LOOT_ANCHOR_NAME], "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
 		SetScaleIfNeeded(bonusRollFrame, scale)
 
 		local maxFrames = _G.NUM_GROUP_LOOT_FRAMES or 4
@@ -330,7 +365,7 @@ RepositionLootFrames = function()
 		if i == 1 then
 			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
-				frame:SetPoint("BOTTOMLEFT", _G.LootRollMoverAnchor_Frame, "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
+				frame:SetPoint("BOTTOMLEFT", _G[LOOT_ANCHOR_NAME], "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
 				SetScaleIfNeeded(frame, scale)
 			end
 		elseif i > 1 then
@@ -343,22 +378,90 @@ RepositionLootFrames = function()
 	end
 end
 
+-- Achievement-related subsystems (long toast + criteria).
+local function IsAchievementSubSystem(alertFrameSubSystem)
+	return alertFrameSubSystem
+		and (alertFrameSubSystem == _G.AchievementAlertSystem
+			or alertFrameSubSystem == _G.CriteriaAlertSystem)
+end
+
+-- Run AdjustAnchors for a filtered set of subsystems against a start anchor.
+local function ApplySubSystemAnchors(subsystems, startAnchor, shouldAnchor)
+	if not startAnchor then return end
+	local relativeFrame = startAnchor
+	for i = 1, #subsystems do
+		local subSystem = subsystems[i]
+		if subSystem and subSystem.AdjustAnchors and shouldAnchor(subSystem) then
+			-- Clear existing points to avoid stacking offsets from prior anchoring passes.
+			if subSystem.alertFramePool and subSystem.alertFramePool.EnumerateActive then
+				for alertFrame in subSystem.alertFramePool:EnumerateActive() do
+					alertFrame:ClearAllPoints()
+				end
+			elseif subSystem.alertFrame and subSystem.alertFrame.ClearAllPoints then
+				subSystem.alertFrame:ClearAllPoints()
+			elseif subSystem.anchorFrame and subSystem.anchorFrame.ClearAllPoints then
+				subSystem.anchorFrame:ClearAllPoints()
+			end
+			relativeFrame = subSystem:AdjustAnchors(relativeFrame)
+		end
+	end
+end
+
+-- Anchor non-achievement alert subsystems to the LRM alert anchor.
+local function FixAlertAnchors(self)
+	if not addon:IsAlertAnchorEnabled() then return end
+	local container = self or _G.AlertFrame
+	if not CanAccessObject(container) then return end
+	local alertAnchor = _G[ALERT_ANCHOR_NAME]
+	if not alertAnchor then return end
+
+	if LRMDB then
+		local scale = ClampScale(LRMDB.scale)
+		if LRMDB.scale ~= scale then LRMDB.scale = scale end
+		SetScaleIfNeeded(alertAnchor, scale)
+		SetScaleIfNeeded(container, scale)
+	end
+
+	local subsystems = container.alertFrameSubSystems
+	if type(subsystems) ~= "table" then return end
+	if container.CleanAnchorPriorities then
+		container:CleanAnchorPriorities()
+	end
+
+	ApplySubSystemAnchors(subsystems, alertAnchor, function(subSystem)
+		return not IsAchievementSubSystem(subSystem)
+	end)
+end
+
 --AlertFrame (are for Toasts like achievements but can show loot sometimes)
 --https://www.wowinterface.com/forums/showthread.php?t=58990
 local hookRegistry = {}
-local function SafeHook(nameOrObject, method)
+local function SafeHook(nameOrObject, method, callback)
 	if not nameOrObject then return end
 	local key = method and (tostring(nameOrObject) .. ":" .. method) or tostring(nameOrObject)
 	if hookRegistry[key] then return end
 	hookRegistry[key] = true
+	local func = callback or RepositionLootFrames
 	if method then
-		hooksecurefunc(nameOrObject, method, RepositionLootFrames)
+		hooksecurefunc(nameOrObject, method, func)
 	else
-		hooksecurefunc(nameOrObject, RepositionLootFrames)
+		hooksecurefunc(nameOrObject, func)
 	end
 end
 
 local hooksApplied = false
+local alertHooksApplied = false
+local function SetupAlertHooks()
+	if alertHooksApplied then return end
+	if _G.AlertFrame_FixAnchors then
+		SafeHook("AlertFrame_FixAnchors", nil, FixAlertAnchors)
+	end
+	if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
+		SafeHook(_G.AlertFrame, "UpdateAnchors", FixAlertAnchors)
+	end
+	alertHooksApplied = true
+end
+
 SetupHooks = function()
 	if hooksApplied then return end
 	if _G.GroupLootContainer_OnLoad then
@@ -389,58 +492,11 @@ SetupHooks = function()
 	end
 
 	--old AlertFrame FixAnchors, backwards compatible if found
-	if _G.AlertFrame_FixAnchors then
-		SafeHook("AlertFrame_FixAnchors")
-	end
-	if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
-		SafeHook(_G.AlertFrame, "UpdateAnchors")
-		_G.AlertFrame.ignoreFramePositionManager = true
+	if addon:IsAlertAnchorEnabled() then
+		SetupAlertHooks()
 	end
 
 	hooksApplied = true
-end
-
-local function SyncXanAchievementMoverAnchor()
-	if not IsAddonLoaded(XAM_ADDON_NAME) then return false end
-	local lrmAnchor = _G.LRM_AlertFrame_Anchor
-	if not lrmAnchor or not lrmAnchor.GetPoint then return false end
-
-	local point, _, relativePoint, xOfs, yOfs = lrmAnchor:GetPoint()
-	if not point then return false end
-
-	XanAM_DB = XanAM_DB or {}
-	local opt = XanAM_DB[XAM_ANCHOR_NAME]
-	if not opt then
-		opt = {}
-		XanAM_DB[XAM_ANCHOR_NAME] = opt
-	end
-
-	opt.point = point
-	opt.relativePoint = relativePoint
-	opt.xOfs = xOfs
-	opt.yOfs = yOfs
-
-	local xamAnchor = _G[XAM_ANCHOR_NAME]
-	if xamAnchor then
-		xamAnchor:ClearAllPoints()
-		xamAnchor:SetPoint(point, UIParent, relativePoint, xOfs, yOfs)
-	end
-
-	return true
-end
-
-function addon:SetupAchievementMoverSync()
-	if SyncXanAchievementMoverAnchor() then return end
-	if self._xamWatcher then return end
-
-	local watcher = CreateFrame("Frame")
-	self._xamWatcher = watcher
-	watcher:RegisterEvent("ADDON_LOADED")
-	watcher:SetScript("OnEvent", function(_, _, addonName)
-		if addonName ~= XAM_ADDON_NAME then return end
-		SyncXanAchievementMoverAnchor()
-		watcher:UnregisterEvent("ADDON_LOADED")
-	end)
 end
 
 -- hooks are applied during EnableAddon to avoid early missing globals.
@@ -472,7 +528,7 @@ function addon:DrawAnchor()
 	if not groupHeight or groupHeight <= 0 then groupHeight = 67 end
 
 	CreateAnchorFrame(
-		"LootRollMoverAnchor_Frame",
+		LOOT_ANCHOR_NAME,
 		groupWidth,
 		groupHeight,
 		L.LRM_Anchor.."\n\n"..L.DragFrameInfo,
@@ -482,33 +538,67 @@ function addon:DrawAnchor()
 
 	--Alert Frame anchor
 	----------------------------------------------
-	local alertBase = _G.AlertFrame
-	local alertWidth = (alertBase and alertBase.GetWidth and alertBase:GetWidth()) or 249
-	local alertHeight = (alertBase and alertBase.GetHeight and alertBase:GetHeight()) or 71
+	if self:IsAlertAnchorEnabled() then
+		local alertBase = _G.AlertFrame
+		local alertWidth = (alertBase and alertBase.GetWidth and alertBase:GetWidth()) or 249
+		local alertHeight = (alertBase and alertBase.GetHeight and alertBase:GetHeight()) or 71
 
-	--https://www.townlong-yak.com/framexml/live/Blizzard_FrameXML/AlertFrameSystems.xml
-	if not alertWidth or alertWidth < 15 then alertWidth = 249 end
-	if not alertHeight or alertHeight < 15 then alertHeight = 71 end
+		--https://www.townlong-yak.com/framexml/live/Blizzard_FrameXML/AlertFrameSystems.xml
+		if not alertWidth or alertWidth < 15 then alertWidth = 249 end
+		if not alertHeight or alertHeight < 15 then alertHeight = 71 end
 
-	CreateAnchorFrame(
-		"LRM_AlertFrame_Anchor",
-		alertWidth,
-		alertHeight,
-		L.Alert_Anchor.."\n\n"..L.DragFrameInfo,
-		0, 0.75, 0,
-		scale
-	)
+		CreateAnchorFrame(
+			ALERT_ANCHOR_NAME,
+			alertWidth,
+			alertHeight,
+			L.Alert_Anchor.."\n\n"..L.DragFrameInfo,
+			0, 0.75, 0,
+			scale
+		)
+	end
 end
 
 function addon:SetScale(value)
 	local scale = ClampScale(value)
 	LRMDB.scale = scale
-	DEFAULT_CHAT_FRAME:AddMessage(string_format(L.SlashScaleSet, scale))
-	if _G.LootRollMoverAnchor_Frame then
-		_G.LootRollMoverAnchor_Frame:SetScale(scale)
+	PrintMessage(string_format(L.SlashScaleSet, scale))
+	if _G[LOOT_ANCHOR_NAME] then
+		_G[LOOT_ANCHOR_NAME]:SetScale(scale)
 	end
-	if _G.LRM_AlertFrame_Anchor then
-		_G.LRM_AlertFrame_Anchor:SetScale(scale)
+	if self:IsAlertAnchorEnabled() then
+		if _G[ALERT_ANCHOR_NAME] then
+			_G[ALERT_ANCHOR_NAME]:SetScale(scale)
+		end
+		local alertFrame = _G.AlertFrame
+		if CanAccessObject(alertFrame) then
+			SetScaleIfNeeded(alertFrame, scale)
+		end
+	end
+end
+
+function addon:ToggleAlertSystem()
+	LRMDB = LRMDB or {}
+	LRMDB.alertEnabled = not IsAlertSystemEnabled()
+
+	local alertAnchor = _G[ALERT_ANCHOR_NAME]
+	if self:IsAlertAnchorEnabled() then
+		if not alertAnchor then
+			self:DrawAnchor()
+			alertAnchor = _G[ALERT_ANCHOR_NAME]
+		end
+		if alertAnchor then
+			self:RestoreLayout(ALERT_ANCHOR_NAME)
+			alertAnchor:Show()
+		end
+		SetupAlertHooks()
+	else
+		if alertAnchor then
+			alertAnchor:Hide()
+		end
+	end
+
+	if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
+		_G.AlertFrame:UpdateAnchors()
 	end
 end
 
@@ -517,6 +607,7 @@ end
 	LAYOUT SAVE/RESTORE
 --------------------------]]
 function addon:SaveLayout(frame)
+	if frame == ALERT_ANCHOR_NAME and not self:IsAlertAnchorEnabled() then return end
 	local opt = EnsureLayout(frame)
 	if not opt then return end
 
@@ -525,13 +616,10 @@ function addon:SaveLayout(frame)
 	opt.relativePoint = relativePoint
 	opt.xOfs = xOfs
 	opt.yOfs = yOfs
-
-	if frame == "LRM_AlertFrame_Anchor" then
-		SyncXanAchievementMoverAnchor()
-	end
 end
 
 function addon:RestoreLayout(frame)
+	if frame == ALERT_ANCHOR_NAME and not self:IsAlertAnchorEnabled() then return end
 	local opt = EnsureLayout(frame)
 	if not opt then return end
 

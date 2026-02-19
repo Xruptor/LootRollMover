@@ -5,9 +5,11 @@ if not L then return end
 
 L.SlashAnchor = "ancora"
 L.SlashAnchorText = "Alternar âncora do quadro"
-L.SlashAnchorOn = "LootRollMover: Âncora agora [|cFF99CC33EXIBIDA|r]"
-L.SlashAnchorOff = "LootRollMover: Âncora agora [|cFF99CC33OCULTA|r]"
+L.SlashAnchorOn = "Âncora agora [|cFF99CC33EXIBIDA|r]"
+L.SlashAnchorOff = "Âncora agora [|cFF99CC33OCULTA|r]"
 L.SlashAnchorInfo = "Alterna a âncora móvel."
+L.AlertAnchorText = "Alternar sistema de alertas"
+L.SlashAlert = "alerta"
 
 L.LRM_Anchor = "Âncora do LootRollMover"
 L.Alert_Anchor = "Âncora de alerta"
@@ -15,11 +17,11 @@ L.Alert_Anchor = "Âncora de alerta"
 L.SlashReset = "redefinir"
 L.SlashResetText = "Redefinir posição da âncora"
 L.SlashResetInfo = "Redefine a posição da âncora."
-L.SlashResetAlert = "LootRollMover: a posição da âncora foi redefinida!"
+L.SlashResetAlert = "a posição da âncora foi redefinida!"
 
 L.SlashScale = "escala"
-L.SlashScaleSet = "LootRollMover: a escala foi definida para [|cFF20ff20%s|r]"
-L.SlashScaleSetInvalid = "LootRollMover: Escala inválida! O número deve ser de [0.5 - 5]. (0.5, 1, 3, 4.6, etc.)"
+L.SlashScaleSet = "a escala foi definida para [|cFF20ff20%s|r]"
+L.SlashScaleSetInvalid = "Escala inválida! O número deve ser de [0.5 - 5]. (0.5, 1, 3, 4.6, etc.)"
 L.SlashScaleInfo = "Define a escala dos quadros de saque do LootRollMover (0.5 - 5)."
 L.SlashScaleText = "Escala dos quadros de saque do LootRollMover"
 
