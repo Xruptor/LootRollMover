@@ -12,6 +12,7 @@ local DEFAULT_CHAT_FRAME = _G.DEFAULT_CHAT_FRAME
 local hooksecurefunc = _G.hooksecurefunc
 local IsLoggedIn = _G.IsLoggedIn
 local issecure = _G.issecure
+local IsAddOnLoaded = _G.IsAddOnLoaded
 local tonumber = tonumber
 local tostring = tostring
 local type = type
@@ -107,6 +108,19 @@ addon.ClampScale = ClampScale
 local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 local RepositionLootFrames
 local SetupHooks
+local XAM_ADDON_NAME = "xanAchievementMover"
+local XAM_ANCHOR_NAME = "xanAchievementMover_Anchor"
+
+local function IsAddonLoaded(name)
+	if not name then return false end
+	if _G.C_AddOns and _G.C_AddOns.IsAddOnLoaded then
+		return _G.C_AddOns.IsAddOnLoaded(name)
+	end
+	if type(IsAddOnLoaded) == "function" then
+		return IsAddOnLoaded(name)
+	end
+	return false
+end
 
 local function EnsureLayout(frameName)
 	if type(frameName) ~= "string" then return nil end
@@ -245,6 +259,7 @@ function addon:EnableAddon()
 
 	if addon.configFrame then addon.configFrame:EnableConfig() end
 	SetupHooks() -- hooks are applied after login to avoid duplicate work and ensure Blizzard frames exist.
+	self:SetupAchievementMoverSync()
 
 	if LRMDB.addonLoginMsg then
 		local ver = (GetMetadata and GetMetadata(ADDON_NAME, "Version")) or "1.0"
@@ -385,6 +400,49 @@ SetupHooks = function()
 	hooksApplied = true
 end
 
+local function SyncXanAchievementMoverAnchor()
+	if not IsAddonLoaded(XAM_ADDON_NAME) then return false end
+	local lrmAnchor = _G.LRM_AlertFrame_Anchor
+	if not lrmAnchor or not lrmAnchor.GetPoint then return false end
+
+	local point, _, relativePoint, xOfs, yOfs = lrmAnchor:GetPoint()
+	if not point then return false end
+
+	XanAM_DB = XanAM_DB or {}
+	local opt = XanAM_DB[XAM_ANCHOR_NAME]
+	if not opt then
+		opt = {}
+		XanAM_DB[XAM_ANCHOR_NAME] = opt
+	end
+
+	opt.point = point
+	opt.relativePoint = relativePoint
+	opt.xOfs = xOfs
+	opt.yOfs = yOfs
+
+	local xamAnchor = _G[XAM_ANCHOR_NAME]
+	if xamAnchor then
+		xamAnchor:ClearAllPoints()
+		xamAnchor:SetPoint(point, UIParent, relativePoint, xOfs, yOfs)
+	end
+
+	return true
+end
+
+function addon:SetupAchievementMoverSync()
+	if SyncXanAchievementMoverAnchor() then return end
+	if self._xamWatcher then return end
+
+	local watcher = CreateFrame("Frame")
+	self._xamWatcher = watcher
+	watcher:RegisterEvent("ADDON_LOADED")
+	watcher:SetScript("OnEvent", function(_, _, addonName)
+		if addonName ~= XAM_ADDON_NAME then return end
+		SyncXanAchievementMoverAnchor()
+		watcher:UnregisterEvent("ADDON_LOADED")
+	end)
+end
+
 -- hooks are applied during EnableAddon to avoid early missing globals.
 
 -- For testing Alert purposes
@@ -467,6 +525,10 @@ function addon:SaveLayout(frame)
 	opt.relativePoint = relativePoint
 	opt.xOfs = xOfs
 	opt.yOfs = yOfs
+
+	if frame == "LRM_AlertFrame_Anchor" then
+		SyncXanAchievementMoverAnchor()
+	end
 end
 
 function addon:RestoreLayout(frame)
