@@ -153,6 +153,7 @@ addon.ClampScale = ClampScale
 local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 local RepositionLootFrames
 local SetupHooks
+local SetupXamWatcher
 
 local function IsAddonLoaded(name)
 	if not name then return false end
@@ -181,6 +182,59 @@ end
 
 function addon:IsAlertAnchorEnabled()
 	return IsAlertSystemEnabled() and not IsXanAchievementMoverLoaded()
+end
+
+local function GetManagedPositions()
+	local managedPositions = _G.UIPARENT_MANAGED_FRAME_POSITIONS
+	if type(managedPositions) == "table" then
+		return managedPositions
+	end
+	return nil
+end
+
+function addon:UpdateAlertFramePositionManager()
+	local alertFrame = _G.AlertFrame
+	if not alertFrame then return end
+
+	if self:IsAlertAnchorEnabled() then
+		if not self._alertFrameManagedOverride then
+			local managedPositions = GetManagedPositions()
+			if managedPositions then
+				self._alertFrameManagedBackup = managedPositions["AlertFrame"]
+				managedPositions["AlertFrame"] = nil
+			end
+			self._alertFrameManagedIgnoreBackup = alertFrame.ignoreFramePositionManager
+			self._alertFrameManagedOverride = true
+		end
+		alertFrame.ignoreFramePositionManager = true
+	else
+		if self._alertFrameManagedOverride and not IsXanAchievementMoverLoaded() then
+			local managedPositions = GetManagedPositions()
+			if managedPositions then
+				managedPositions["AlertFrame"] = self._alertFrameManagedBackup
+			end
+			self._alertFrameManagedBackup = nil
+			self._alertFrameManagedOverride = false
+			alertFrame.ignoreFramePositionManager = self._alertFrameManagedIgnoreBackup
+			self._alertFrameManagedIgnoreBackup = nil
+		end
+	end
+end
+
+function addon:HandleXanAchievementMoverLoaded()
+	if self._xamHandled then return end
+	self._xamHandled = true
+
+	local alertAnchor = _G[ALERT_ANCHOR_NAME]
+	if alertAnchor then
+		alertAnchor:Hide()
+	end
+
+	self:UpdateAlertFramePositionManager()
+
+	if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
+		_G.AlertFrame:UpdateAnchors()
+	end
 end
 
 local function EnsureLayout(frameName)
@@ -287,6 +341,7 @@ function addon:EnableAddon()
 	if self:IsAlertAnchorEnabled() then
 		self:RestoreLayout(ALERT_ANCHOR_NAME)
 	end
+	self:UpdateAlertFramePositionManager()
 
 	--slash commands
 	SLASH_LOOTROLLMOVER1 = "/lrm"
@@ -332,6 +387,7 @@ function addon:EnableAddon()
 
 	if addon.configFrame then addon.configFrame:EnableConfig() end
 	SetupHooks() -- hooks are applied after login to avoid duplicate work and ensure Blizzard frames exist.
+	SetupXamWatcher()
 	if self:IsAlertAnchorEnabled() then
 		-- Ensure alert subsystems are anchored to the LRM alert anchor once we are enabled.
 		if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
@@ -461,6 +517,7 @@ local function FixAlertAnchors(self)
 	if not addon:IsAlertAnchorEnabled() then return end
 	if IsEditModeActive() then return end
 	if IsTalkingHeadActive() then return end
+	addon:UpdateAlertFramePositionManager()
 	local container = self or _G.AlertFrame
 	if not CanAccessObject(container) then return end
 	local alertAnchor = _G[ALERT_ANCHOR_NAME]
@@ -475,9 +532,6 @@ local function FixAlertAnchors(self)
 
 	local subsystems = container.alertFrameSubSystems
 	if type(subsystems) ~= "table" then return end
-	if container.CleanAnchorPriorities then
-		container:CleanAnchorPriorities()
-	end
 
 	ApplySubSystemAnchors(subsystems, alertAnchor, function(subSystem)
 		return not IsAchievementSubSystem(subSystem) and not IsTalkingHeadSubSystem(subSystem)
@@ -510,7 +564,25 @@ local function SetupAlertHooks()
 	if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
 		SafeHook(_G.AlertFrame, "UpdateAnchors", FixAlertAnchors)
 	end
+	addon:UpdateAlertFramePositionManager()
 	alertHooksApplied = true
+end
+
+SetupXamWatcher = function()
+	if addon._xamWatcher then return end
+	if IsXanAchievementMoverLoaded() then
+		addon:HandleXanAchievementMoverLoaded()
+		return
+	end
+
+	local watcher = CreateFrame("Frame")
+	addon._xamWatcher = watcher
+	watcher:RegisterEvent("ADDON_LOADED")
+	watcher:SetScript("OnEvent", function(_, _, addonName)
+		if addonName ~= XAM_ADDON_NAME then return end
+		addon:HandleXanAchievementMoverLoaded()
+		watcher:UnregisterEvent("ADDON_LOADED")
+	end)
 end
 
 SetupHooks = function()
@@ -647,6 +719,8 @@ function addon:ToggleAlertSystem()
 			alertAnchor:Hide()
 		end
 	end
+
+	self:UpdateAlertFramePositionManager()
 
 	if _G.AlertFrame and _G.AlertFrame.UpdateAnchors then
 		_G.AlertFrame:UpdateAnchors()
