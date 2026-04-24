@@ -13,6 +13,7 @@ L.SlashAlert = "alarm"
 
 L.LRM_Anchor = "LootRollMover-Anker"
 L.Alert_Anchor = "Alarm-Anker"
+L.Bonus_Anchor = "Bonus-Wurf-Anker"
 
 L.SlashReset = "zurücksetzen"
 L.SlashResetText = "Ankerposition zurücksetzen"

@@ -13,6 +13,7 @@ L.SlashAlert = "提示"
 
 L.LRM_Anchor = "LootRollMover 锚点"
 L.Alert_Anchor = "提醒锚点"
+L.Bonus_Anchor = "额外掷骰锚点"
 
 L.SlashReset = "重置"
 L.SlashResetText = "重置锚点位置"

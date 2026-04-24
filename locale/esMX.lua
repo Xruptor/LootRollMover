@@ -13,6 +13,7 @@ L.SlashAlert = "alerta"
 
 L.LRM_Anchor = "Ancla de LootRollMover"
 L.Alert_Anchor = "Ancla de alerta"
+L.Bonus_Anchor = "Ancla de tirada de bonificación"
 
 L.SlashReset = "restablecer"
 L.SlashResetText = "Restablecer posición del ancla"

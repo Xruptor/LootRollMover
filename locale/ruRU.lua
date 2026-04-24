@@ -14,6 +14,7 @@ L.SlashAlert = "оповещение"
 
 L.LRM_Anchor = "Якорь LootRollMover"
 L.Alert_Anchor = "Якорь оповещений"
+L.Bonus_Anchor = "Якорь бонусного броска"
 
 L.SlashReset = "сброс"
 L.SlashResetText = "Сбросить позицию якоря"

@@ -13,6 +13,7 @@ L.SlashAlert = "알림"
 
 L.LRM_Anchor = "LootRollMover 앵커"
 L.Alert_Anchor = "알림 앵커"
+L.Bonus_Anchor = "보너스 주사위 앵커"
 
 L.SlashReset = "재설정"
 L.SlashResetText = "앵커 위치 재설정"

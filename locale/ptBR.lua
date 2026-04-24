@@ -13,6 +13,7 @@ L.SlashAlert = "alerta"
 
 L.LRM_Anchor = "Âncora do LootRollMover"
 L.Alert_Anchor = "Âncora de alerta"
+L.Bonus_Anchor = "Âncora de rolagem de bônus"
 
 L.SlashReset = "redefinir"
 L.SlashResetText = "Redefinir posição da âncora"

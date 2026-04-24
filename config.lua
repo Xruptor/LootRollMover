@@ -1,8 +1,3 @@
--- Changes made:
--- - Localized globals and added idempotent config initialization to avoid duplicate UI creation.
--- - Added defensive nil checks for anchor frame actions.
--- - Simplified control creation helpers and improved ordering/clarity.
-
 local _G = _G
 local CreateFrame = _G.CreateFrame
 local UIParent = _G.UIParent
@@ -20,7 +15,7 @@ if not _G[ADDON_NAME] then
 end
 local addon = _G[ADDON_NAME]
 
-addon.configFrame = CreateFrame("frame", ADDON_NAME.."_config_eventFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
+addon.configFrame = CreateFrame("Frame", ADDON_NAME.."_config_eventFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 local configFrame = addon.configFrame
 
 addon.private = private
@@ -145,7 +140,7 @@ local function LoadAboutFrame()
 	local fields = {"Version", "Author"}
 	local notes = (GetMetadata and GetMetadata(ADDON_NAME, "Notes")) or ""
 
-    local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+	local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 
 	title:SetPoint("TOPLEFT", 16, -16)
 	title:SetText(ADDON_NAME)
@@ -214,10 +209,12 @@ function configFrame:EnableConfig()
 	local btnAnchor = createButton(addon.aboutPanel, L.SlashAnchorText)
 	btnAnchor.func = function()
 		local lootAnchor = _G.LootRollMoverAnchor_Frame
+		local bonusAnchor = _G.LRM_BonusRoll_Anchor
 		local alertAnchor = _G.LRM_AlertFrame_Anchor
 		local alertEnabled = IsAlertAnchorEnabled()
+		local showing = lootAnchor and lootAnchor:IsVisible()
 		if lootAnchor then
-			if lootAnchor:IsVisible() then
+			if showing then
 				lootAnchor:Hide()
 				PrintMessage(L.SlashAnchorOff)
 			else
@@ -225,9 +222,16 @@ function configFrame:EnableConfig()
 				PrintMessage(L.SlashAnchorOn)
 			end
 		end
+		if bonusAnchor then
+			if showing then
+				bonusAnchor:Hide()
+			else
+				bonusAnchor:Show()
+			end
+		end
 		if alertAnchor then
 			if alertEnabled then
-				if alertAnchor:IsVisible() then
+				if showing then
 					alertAnchor:Hide()
 				else
 					alertAnchor:Show()
@@ -259,17 +263,26 @@ function configFrame:EnableConfig()
 	btnReset.func = function()
 		PrintMessage(L.SlashResetAlert)
 		local lootAnchor = _G.LootRollMoverAnchor_Frame
+		local bonusAnchor = _G.LRM_BonusRoll_Anchor
 		local alertAnchor = _G.LRM_AlertFrame_Anchor
 		local alertEnabled = IsAlertAnchorEnabled()
 		if lootAnchor then
 			lootAnchor:ClearAllPoints()
 			lootAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 			lootAnchor:Show()
+			addon:SaveLayout("LootRollMoverAnchor_Frame")
+		end
+		if bonusAnchor then
+			bonusAnchor:ClearAllPoints()
+			bonusAnchor:SetPoint("CENTER", UIParent, "CENTER", 310, 0)
+			bonusAnchor:Show()
+			addon:SaveLayout("LRM_BonusRoll_Anchor")
 		end
 		if alertAnchor and alertEnabled then
 			alertAnchor:ClearAllPoints()
 			alertAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 			alertAnchor:Show()
+			addon:SaveLayout("LRM_AlertFrame_Anchor")
 		elseif alertAnchor then
 			alertAnchor:Hide()
 		end

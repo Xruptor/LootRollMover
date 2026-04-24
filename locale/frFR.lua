@@ -13,6 +13,7 @@ L.SlashAlert = "alerte"
 
 L.LRM_Anchor = "Ancre LootRollMover"
 L.Alert_Anchor = "Ancre d'alerte"
+L.Bonus_Anchor = "Ancre de lancer de bonus"
 
 L.SlashReset = "réinitialiser"
 L.SlashResetText = "Réinitialiser la position de l'ancre"

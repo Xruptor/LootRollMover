@@ -13,6 +13,7 @@ L.SlashAlert = "alert"
 
 L.LRM_Anchor = "LootRollMover Anchor"
 L.Alert_Anchor = "Alert Anchor"
+L.Bonus_Anchor = "Bonus Roll Anchor"
 
 L.SlashReset = "reset"
 L.SlashResetText = "Reset Anchor Position"

@@ -1,9 +1,4 @@
 --LootRollMover by Xruptor
--- Changes made:
--- - Centralized and localized hot-path globals for fewer lookups and safer access.
--- - Made addon enable and hook setup idempotent to avoid repeated work.
--- - Added defensive guards around frame access and scaling to reduce errors and taint risk.
--- - Streamlined event handling and slash parsing for clarity and early returns.
 
 local _G = _G
 local CreateFrame = _G.CreateFrame
@@ -57,17 +52,16 @@ local ANCHOR_OFFSET_Y = 2
 local STACK_STEP_Y = 3
 local LOOT_ANCHOR_NAME = "LootRollMoverAnchor_Frame"
 local ALERT_ANCHOR_NAME = "LRM_AlertFrame_Anchor"
+local BONUS_ANCHOR_NAME = "LRM_BonusRoll_Anchor"
 local XAM_ADDON_NAME = "xanAchievementMover"
 
 local WOW_PROJECT_ID = _G.WOW_PROJECT_ID
 local WOW_PROJECT_MAINLINE = _G.WOW_PROJECT_MAINLINE
 local WOW_PROJECT_CLASSIC = _G.WOW_PROJECT_CLASSIC
---local WOW_PROJECT_BURNING_CRUSADE_CLASSIC = _G.WOW_PROJECT_BURNING_CRUSADE_CLASSIC
 local WOW_PROJECT_WRATH_CLASSIC = _G.WOW_PROJECT_WRATH_CLASSIC
 
 addon.IsRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 addon.IsClassic = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
---BSYC.IsTBC_C = WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC
 addon.IsWLK_C = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
 
 local function OnEvent(self, event, ...)
@@ -142,11 +136,7 @@ end
 
 local function IsTalkingHeadActive()
 	local th = _G.TalkingHeadFrame
-	if not th then return false end
-	if type(th.IsShown) == "function" and th:IsShown() then
-		return true
-	end
-	return false
+	return th ~= nil and type(th.IsShown) == "function" and th:IsShown()
 end
 
 addon.ClampScale = ClampScale
@@ -171,13 +161,7 @@ local function IsXanAchievementMoverLoaded()
 end
 
 local function IsAlertSystemEnabled()
-	if type(LRMDB) ~= "table" then
-		return true
-	end
-	if LRMDB.alertEnabled == nil then
-		return true
-	end
-	return LRMDB.alertEnabled
+	return type(LRMDB) ~= "table" or LRMDB.alertEnabled ~= false
 end
 
 function addon:IsAlertAnchorEnabled()
@@ -248,10 +232,10 @@ local function EnsureLayout(frameName)
 		LRMDB[frameName] = opt
 	end
 
-	if opt.point == nil then opt.point = "CENTER" end
-	if opt.relativePoint == nil then opt.relativePoint = "CENTER" end
-	if opt.xOfs == nil then opt.xOfs = 0 end
-	if opt.yOfs == nil then opt.yOfs = 0 end
+	opt.point = opt.point or "CENTER"
+	opt.relativePoint = opt.relativePoint or "CENTER"
+	opt.xOfs = opt.xOfs or 0
+	opt.yOfs = opt.yOfs or 0
 
 	return opt
 end
@@ -333,11 +317,19 @@ function addon:EnableAddon()
 	if LRMDB.alertEnabled == nil then LRMDB.alertEnabled = true end
 	LRMDB.scale = ClampScale(LRMDB.scale)
 
+	-- Default bonus anchor to the right of the loot anchor so they don't overlap on first use.
+	if _G.BonusRollFrame_OnLoad and not LRMDB[BONUS_ANCHOR_NAME] then
+		LRMDB[BONUS_ANCHOR_NAME] = { point = "CENTER", relativePoint = "CENTER", xOfs = 310, yOfs = 0 }
+	end
+
 	--draw the anchor
 	self:DrawAnchor()
 
 	--restore previous layout
 	self:RestoreLayout(LOOT_ANCHOR_NAME)
+	if _G[BONUS_ANCHOR_NAME] then
+		self:RestoreLayout(BONUS_ANCHOR_NAME)
+	end
 	if self:IsAlertAnchorEnabled() then
 		self:RestoreLayout(ALERT_ANCHOR_NAME)
 	end
@@ -397,7 +389,7 @@ function addon:EnableAddon()
 
 	if LRMDB.addonLoginMsg then
 		local ver = (GetMetadata and GetMetadata(ADDON_NAME, "Version")) or "1.0"
-		PrintMessage(string_format("[v|cFF20ff20%s|r] loaded:   /lrm", ver or "1.0"))
+		PrintMessage(string_format("[v|cFF20ff20%s|r] loaded:   /lrm", ver))
 	end
 end
 
@@ -414,6 +406,7 @@ RepositionLootFrames = function()
 	local frame
 	local scale = ClampScale(LRMDB.scale)
 	if LRMDB.scale ~= scale then LRMDB.scale = scale end
+	local maxFrames = _G.NUM_GROUP_LOOT_FRAMES or 4
 
 	local groupLootContainer = _G.GroupLootContainer
 	if CanAccessObject(groupLootContainer) then
@@ -423,13 +416,12 @@ RepositionLootFrames = function()
 	end
 
 	local bonusRollFrame = _G.BonusRollFrame
-	if CanAccessObject(bonusRollFrame) then
+	if CanAccessObject(bonusRollFrame) and _G[BONUS_ANCHOR_NAME] then
 		bonusRollFrame:ClearAllPoints()
-		bonusRollFrame:SetPoint("BOTTOMLEFT", _G[LOOT_ANCHOR_NAME], "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
+		bonusRollFrame:SetPoint("BOTTOMLEFT", _G[BONUS_ANCHOR_NAME], "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
 		SetScaleIfNeeded(bonusRollFrame, scale)
 
-		local maxFrames = _G.NUM_GROUP_LOOT_FRAMES or 4
-		for i=1, maxFrames do
+		for i = 1, maxFrames do
 			frame = _G["BonusRollFrame" .. i]
 			if frame and CanAccessObject(frame) then
 				frame:ClearAllPoints()
@@ -442,21 +434,17 @@ RepositionLootFrames = function()
 			end
 		end
 	end
-	local maxFrames = _G.NUM_GROUP_LOOT_FRAMES or 4
-	for i=1, maxFrames do
+
+	for i = 1, maxFrames do
 		frame = _G["GroupLootFrame" .. i]
-		if i == 1 then
-			if frame and CanAccessObject(frame) then
-				frame:ClearAllPoints()
+		if frame and CanAccessObject(frame) then
+			frame:ClearAllPoints()
+			if i == 1 then
 				frame:SetPoint("BOTTOMLEFT", _G[LOOT_ANCHOR_NAME], "BOTTOMLEFT", ANCHOR_OFFSET_X, ANCHOR_OFFSET_Y)
-				SetScaleIfNeeded(frame, scale)
-			end
-		elseif i > 1 then
-			if frame and CanAccessObject(frame) then
-				frame:ClearAllPoints()
+			else
 				frame:SetPoint("BOTTOM", "GroupLootFrame" .. (i-1), "TOP", 0, STACK_STEP_Y)
-				SetScaleIfNeeded(frame, scale)
 			end
+			SetScaleIfNeeded(frame, scale)
 		end
 	end
 end
@@ -472,22 +460,7 @@ local function IsTalkingHeadSubSystem(alertFrameSubSystem)
 	if not alertFrameSubSystem then return false end
 	local th = _G.TalkingHeadFrame
 	if not th then return false end
-	if alertFrameSubSystem.anchorFrame == th or alertFrameSubSystem.alertFrame == th then
-		return true
-	end
-	if alertFrameSubSystem.alertFrame and alertFrameSubSystem.alertFrame.GetName then
-		local name = alertFrameSubSystem.alertFrame:GetName()
-		if name and name == "TalkingHeadFrame" then
-			return true
-		end
-	end
-	if alertFrameSubSystem.anchorFrame and alertFrameSubSystem.anchorFrame.GetName then
-		local name = alertFrameSubSystem.anchorFrame:GetName()
-		if name and name == "TalkingHeadFrame" then
-			return true
-		end
-	end
-	return false
+	return alertFrameSubSystem.anchorFrame == th or alertFrameSubSystem.alertFrame == th
 end
 
 -- Run AdjustAnchors for a filtered set of subsystems against a start anchor.
@@ -513,12 +486,12 @@ local function ApplySubSystemAnchors(subsystems, startAnchor, shouldAnchor)
 end
 
 -- Anchor non-achievement alert subsystems to the LRM alert anchor.
-local function FixAlertAnchors(self)
+local function FixAlertAnchors(frame)
 	if not addon:IsAlertAnchorEnabled() then return end
 	if IsEditModeActive() then return end
 	if IsTalkingHeadActive() then return end
 	addon:UpdateAlertFramePositionManager()
-	local container = self or _G.AlertFrame
+	local container = frame or _G.AlertFrame
 	if not CanAccessObject(container) then return end
 	local alertAnchor = _G[ALERT_ANCHOR_NAME]
 	if not alertAnchor then return end
@@ -587,34 +560,22 @@ end
 
 SetupHooks = function()
 	if hooksApplied then return end
-	if _G.GroupLootContainer_OnLoad then
-		SafeHook("GroupLootContainer_OnLoad")
-	end
-	if _G.GroupLootContainer_RemoveFrame then
-		SafeHook("GroupLootContainer_RemoveFrame")
-	end
-	if _G.GroupLootContainer_Update then
-		SafeHook("GroupLootContainer_Update")
-	end
-	if _G.GroupLootFrame_OnShow then
-		SafeHook("GroupLootFrame_OnShow")
+
+	local simpleHooks = {
+		"GroupLootContainer_OnLoad",
+		"GroupLootContainer_RemoveFrame",
+		"GroupLootContainer_Update",
+		"GroupLootFrame_OnShow",
+		-- Bonus rolls (retail)
+		"BonusRollFrame_OnLoad",
+		"BonusRollFrame_StartBonusRoll",
+		"BonusRollFrame_OnUpdate",
+		"BonusRollFrame_OnShow",
+	}
+	for _, name in ipairs(simpleHooks) do
+		if _G[name] then SafeHook(name) end
 	end
 
-	--Bonus Rolls found on Live Servers
-	if _G.BonusRollFrame_OnLoad then
-		SafeHook("BonusRollFrame_OnLoad")
-	end
-	if _G.BonusRollFrame_StartBonusRoll then
-		SafeHook("BonusRollFrame_StartBonusRoll")
-	end
-	if _G.BonusRollFrame_OnUpdate then
-		SafeHook("BonusRollFrame_OnUpdate")
-	end
-	if _G.BonusRollFrame_OnShow then
-		SafeHook("BonusRollFrame_OnShow")
-	end
-
-	--old AlertFrame FixAnchors, backwards compatible if found
 	if addon:IsAlertAnchorEnabled() then
 		SetupAlertHooks()
 	end
@@ -647,8 +608,8 @@ function addon:DrawAnchor()
 	local groupLootFrame = _G.GroupLootFrame1
 	local groupWidth = (groupLootFrame and groupLootFrame.GetWidth and groupLootFrame:GetWidth()) or 277
 	local groupHeight = (groupLootFrame and groupLootFrame.GetHeight and groupLootFrame:GetHeight()) or 67
-	if not groupWidth or groupWidth <= 0 then groupWidth = 277 end
-	if not groupHeight or groupHeight <= 0 then groupHeight = 67 end
+	if groupWidth <= 0 then groupWidth = 277 end
+	if groupHeight <= 0 then groupHeight = 67 end
 
 	CreateAnchorFrame(
 		LOOT_ANCHOR_NAME,
@@ -659,6 +620,25 @@ function addon:DrawAnchor()
 		scale
 	)
 
+	--Bonus Roll anchor (retail only, when BonusRollFrame exists)
+	----------------------------------------------
+	if _G.BonusRollFrame_OnLoad then
+		local bonusFrame = _G.BonusRollFrame
+		local bonusWidth = (bonusFrame and bonusFrame.GetWidth and bonusFrame:GetWidth()) or 277
+		local bonusHeight = (bonusFrame and bonusFrame.GetHeight and bonusFrame:GetHeight()) or 87
+		if bonusWidth <= 0 then bonusWidth = 277 end
+		if bonusHeight <= 0 then bonusHeight = 87 end
+
+		CreateAnchorFrame(
+			BONUS_ANCHOR_NAME,
+			bonusWidth,
+			bonusHeight,
+			L.Bonus_Anchor.."\n\n"..L.DragFrameInfo,
+			0, 0.45, 0.9,
+			scale
+		)
+	end
+
 	--Alert Frame anchor
 	----------------------------------------------
 	if self:IsAlertAnchorEnabled() then
@@ -667,15 +647,15 @@ function addon:DrawAnchor()
 		local alertHeight = (alertBase and alertBase.GetHeight and alertBase:GetHeight()) or 71
 
 		--https://www.townlong-yak.com/framexml/live/Blizzard_FrameXML/AlertFrameSystems.xml
-		if not alertWidth or alertWidth < 15 then alertWidth = 249 end
-		if not alertHeight or alertHeight < 15 then alertHeight = 71 end
+		if alertWidth < 15 then alertWidth = 249 end
+		if alertHeight < 15 then alertHeight = 71 end
 
 		CreateAnchorFrame(
 			ALERT_ANCHOR_NAME,
 			alertWidth,
 			alertHeight,
 			L.Alert_Anchor.."\n\n"..L.DragFrameInfo,
-			0, 0.75, 0,
+			0.7, 0.5, 0.85,
 			scale
 		)
 	end
@@ -688,6 +668,9 @@ function addon:SetScale(value)
 	if _G[LOOT_ANCHOR_NAME] then
 		_G[LOOT_ANCHOR_NAME]:SetScale(scale)
 	end
+	if _G[BONUS_ANCHOR_NAME] then
+		_G[BONUS_ANCHOR_NAME]:SetScale(scale)
+	end
 	if self:IsAlertAnchorEnabled() then
 		if _G[ALERT_ANCHOR_NAME] then
 			_G[ALERT_ANCHOR_NAME]:SetScale(scale)
@@ -697,6 +680,7 @@ function addon:SetScale(value)
 			SetScaleIfNeeded(alertFrame, scale)
 		end
 	end
+	RepositionLootFrames()
 end
 
 function addon:ToggleAlertSystem()
